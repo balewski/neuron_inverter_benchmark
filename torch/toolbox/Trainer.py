@@ -48,14 +48,6 @@ class Trainer():
     bulk=read_yaml(metaF,verb=self.verb)
     inpMD=bulk['dataInfo']
     self.inpMD=inpMD
-
-    '''
-    try:  # handle practice or witness
-      params['numLocalSamples']=params['globalTrainSamples']//params['world_size']  # hack to make 1-cell dataloader to work
-      params['cell_name']=inpMD['cellSplit'][ params['cell_name'][0] ]
-    except:
-      pass
-    '''
     
     if self.verb:
       logging.info('T:params %s'%pformat(params))
@@ -67,12 +59,6 @@ class Trainer():
 
     params['shuffle']=True
     self.train_loader = get_data_loader(params, inpMD,'train', verb=self.verb)
-    '''
-    try: 
-      params['numLocalSamples']//=8  # reduce smaples for validation & test
-    except:
-      pass # hack to make 1-cell-dataloader num smaples are taken from data
-    '''
 
     params['shuffle']=True # use False for reproducibility
     params['num_data_workers']*=2 # double # of workers for val-loader
@@ -119,7 +105,7 @@ class Trainer():
       summary(self.model,(1,4,1600))
       if self.verb>1: print(self.model)
 
-     if self.isRank0: # save entirel model before training
+    if self.isRank0: # save entirel model before training
       modelF ='blank_model.pth'
       params["blank_model"]=modelF
       torch.save( self.model, params['out_path']+'/'+modelF)
@@ -150,8 +136,9 @@ class Trainer():
     self.criterion =torch.nn.MSELoss().to(self.device) # Mean Squared Loss
 
     if params['world_size']>1:
-      self.model = DistributedDataParallel(self.model,
-               device_ids=[params['local_rank']],output_device=[params['local_rank']])
+      self.model = DistributedDataParallel(self.model
+            ,device_ids=[params['local_rank']],output_device=[params['local_rank']]
+      )
       # note, using DDP assures the same as average_gradients(self.model), no need to do it manually ??
     self.iters = 0
     self.startEpoch = 0

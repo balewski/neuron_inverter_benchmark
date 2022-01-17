@@ -2,7 +2,12 @@ I have modified Sridutt script (sriduttb@lbl.gov) so it can run as independent s
 https://github.com/balewski/neuron_inverter_benchmark/blob/main/torch/toolbox/pm_continuous_log_energy.sh 
 I set the update period at 3 sec.
 The example output looks like this:
-ADD
+
+ENERGY_LOG,date,unix_millisec,hostname,node_governor,node_ene_J,cpu_ene_J,memory_ene_J,gpu0_ene_J,gpu1_ene_J,gpu2_ene_J,gpu3_ene_J,freshness,jobId
+ENERGY_LOG,2021-09-21T20:45:22,1632282322163,nid001237,performance,420936452,54833641,74301150,68449644,62998183,63171324,64259427,6850238,66879
+ENERGY_LOG,2021-09-21T20:45:25,1632282325189,nid001237,performance,420937544,54833790,74301364,68449812,62998337,63171478,64259583,6850266,66879
+ENERGY_LOG,2021-09-21T20:45:28,1632282328214,nid001237,performance,420938529,54833919,74301563,68449964,62998475,63171620,64259728,6850291,66879
+
 
 The counters measure exactly was the name suggest. 
 	energy - measures energy consumed by the whole node
@@ -18,7 +23,8 @@ I run the energy-monitor and ' srun -n'  concurrently  like this:
 nprocspn=${SLURM_NTASKS_PER_NODE}
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
-jobId=${SLURM_JOBID}./toolbox/pm_continuous_log_energy.sh $jobId  300 >& log.energy_$jobId.csv &
+jobId=${SLURM_JOBID}
+./pm_continuous_log_energy.sh $jobId  300 >& log.energy_$jobId.csv &
 srun -n $G  train.py  >& log.train
 - - - 
 where train.py is my single GPU task.

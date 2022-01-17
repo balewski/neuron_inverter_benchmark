@@ -7,15 +7,29 @@
 #-SBATCH  -x cgpu08 # block sick nodes
 #---CORI_GPU---
 #-SBATCH  -N1 --ntasks-per-node=4  --gpus-per-task=1  --cpus-per-task=10
-#-SBATCH -N8 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=10 --exclusive
+#-SBATCH -N1 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=10 --exclusive
 #---PERLMUTTER---
-#SBATCH -N1 --ntasks-per-node=2 --gpus-per-task=1 --cpus-per-task=32 --exclusive 
+# see https://docs.nersc.gov/jobs/examples/#perlmutter-gpus
+#SBATCH -A dasrepo_g
+#SBATCH -N1 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
+#1 GPU visible to each task - remove 2 of them
+#-SBATCH --gpu-bind=map_gpu:0,1,2,3
+#-SBATCH --gpu-bind=map_gpu:3,2,1,0  
 # - - - E N D    O F    SLURM    C O M M A N D S4
+
+#due to the NIC topology NCCL doesn’t automatically use Direct RDMA  which controlls  the NICs for multi-node
+# https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-net-gdr-level-formerly-nccl-ib-gdr-level
+
+export NCCL_NET_GDR_LEVEL=PHB  #on Direct RDMA 
+#export NCCL_NET_GDR_LEVEL=0 #off Direct RDMA 
+
+#export NCCL_DEBUG=INFO # produces a lot of degugging
+
 #cellName=practice10c  # has 4.8M training samples
 cellName=witness2c # has 1M training samples
 #cellName=bbp153  # has 0.5M training samples
 design=gcref   # reference jobs for Graphcore
-epochs=161
+epochs=40 # 161
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
@@ -49,7 +63,7 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/september/
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/october
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  initLRstr=$initLRstr jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
@@ -69,7 +83,7 @@ echo lsfPWD=`pwd`
 
 ./toolbox/pm_continuous_log_energy.sh $jobId  300 >& log.energy_$jobId.csv &
 
-echo "starting  jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath eneId=$eneId"
+echo "starting  jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath "
 
 time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
 

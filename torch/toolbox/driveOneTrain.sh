@@ -7,9 +7,12 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     echo D: num-cpus:`nproc --all`
     nvidia-smi --list-gpus
     python -V
+    nvcc --version  # CUDA version
+    echo cudann version: `cat /usr/include/cudnn_version.h |grep "e CUDNN_MAJOR" -A 2`
     python -c 'import torch; print("D: pytorch:",torch.__version__)'
+    echo D: Direct RDMA=${NCCL_NET_GDR_LEVEL}=
     echo D: survey-end
-    #nvidia-smi -l 5 >&L.smi_${SLURM_JOBID} &
+    nvidia-smi -l 5 >&L.smi_${SLURM_JOBID} &
 fi
 
 # the task command executed here:
