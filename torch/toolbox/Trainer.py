@@ -29,7 +29,7 @@ class Trainer():
     expDir=params['out_path']
     expDir2=os.path.join(expDir, 'checkpoints/')
     if self.isRank0:
-      self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb_logs'))
+      self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb'))
       if not os.path.isdir(expDir2):  os.makedirs(expDir2)
 
     params['checkpoint_name'] =  'checkpoints/ckpt.pth'
@@ -215,13 +215,13 @@ class Trainer():
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
               rec3.update({'val':float(locTotValSamp/valT/kfac)})  # val samp/sec
 
-          lrTit='LR'
-          if self.params['job_id']!=None: lrTit='LR %s'%self.params['job_id']
-          self.TBSwriter.add_scalars(' loss ',rec1 , epoch)
+          lrTit='NI/LR'
+          if self.params['job_id']!=None: lrTit='NI/LR %s'%self.params['job_id']
+          self.TBSwriter.add_scalars('NI/loss ',rec1 , epoch)
           self.TBSwriter.add_scalar(lrTit, self.optimizer.param_groups[0]['lr'], epoch)
 
-          self.TBSwriter.add_scalars('epoch time (sec) ',rec2 , epoch)
-          self.TBSwriter.add_scalars('glob_speed (k samp:sec) ',rec3 , epoch)
+          self.TBSwriter.add_scalars('NI/epoch time (sec) ',rec2 , epoch)
+          self.TBSwriter.add_scalars('NI/glob_speed (k samp:sec) ',rec3 , epoch)
           tV=np.array(TperEpoch)
           if len(tV)>1:
             tAvr=np.mean(tV); tStd=np.std(tV)/np.sqrt(tV.shape[0])

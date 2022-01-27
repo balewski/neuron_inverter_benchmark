@@ -3,19 +3,17 @@ To run training:
 export MASTER_ADDR=`hostname`
 srun -n1 shifter ./train_dist.py
 
-
 To display TensorBoard on the laptop 
 
 To see TB on laptop use port forwarding:
 
 NERSC: from your laptop  in a new Xterm
-ssh -L localhost:9996:localhost:9996 balewski@cori.nersc.gov
+ssh cori-tb
   module load cgpu  pytorch/1.7.1-gpu
-  cd /global/cscratch1/sd/balewski/tmp_digitalMind/neuInv/september/
-  tensorboard --logdir=manual --port 9996
-  tensorboard --logdir=./ --port 9996 
+  cd /global/cscratch1/sd/balewski/tmp_digitalMind/neuInv/benchmark/october
+  tensorboard --port 9800 --logdir=2648858/out/tb
 
-Now you can open   http://0.0.0.0:9996/   in your browser on your laptop
+Now you can open   http://0.0.0.0:9800/   in your browser on your laptop
 
 
  = = = =
