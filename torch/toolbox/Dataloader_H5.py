@@ -32,7 +32,7 @@ def get_data_loader(params, inpMD,domain, verb=1):
   conf=copy.deepcopy(params)  # the input is reused later in the upper level code
   
   conf['domain']=domain
-  conf['h5name']=params['data_path']+inpMD['h5nameTemplate'].replace('*',params['cell_name'])
+  conf['h5name']=os.path.join(params['data_path'],inpMD['h5nameTemplate'].replace('*',params['cell_name']))
   if params['num_inp_chan']!=None: #user wants a change
     assert params['num_inp_chan']>0
     assert params['num_inp_chan']<=inpMD['numFeature']

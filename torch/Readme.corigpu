@@ -3,8 +3,6 @@ To run training:
 export MASTER_ADDR=`hostname`
 srun -n1 shifter ./train_dist.py
 
-To display TensorBoard on the laptop 
-
 To see TB on laptop use port forwarding:
 
 NERSC: from your laptop  in a new Xterm

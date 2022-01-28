@@ -4,8 +4,8 @@ read trained net : model+weights
 read test data from HD5
 infere for  test data 
 
-Inference works alwasy on 1 GPU
-srun -n1 ./predict.py
+Inference works alwasy on 1 GPU or CPUs
+./predict.py  --modelPath  /pscratch/sd/b/balewski/tmp_digitalMind/neuInv/benchmark/january/1305196/out
 
 """
 
@@ -27,15 +27,14 @@ import argparse
 #...!...!..................
 def get_parser():
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--facility", default='corigpu', type=str)
     parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
 
-    parser.add_argument("-m","--modelPath",  default='/global/cscratch1/sd/balewski/tmp_digitalMind/neuInv/manual/', help="trained model ")
+    parser.add_argument("-m","--modelPath",  default='/global/cscratch1/sd/balewski/tmp_digitalMind/neuInv',required=True, help="trained model ")
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")
  
     parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
 
-    parser.add_argument("-n", "--numSamples", type=int, default=None, help="limit samples to predict")
+    parser.add_argument("-n", "--numSamples", type=int, default=200000, help="limit samples to predict")
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
 
     parser.add_argument("--cellName", type=str, default=None, help="alternative cell shortName ")
@@ -112,7 +111,7 @@ if __name__ == '__main__':
   logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 
   if args.outPath=='same' : args.outPath=args.modelPath
-  sumF=args.modelPath+'/sum_train.yaml'
+  sumF=os.path.join(args.modelPath,'sum_train.yaml')
   sumMD = read_yaml( sumF)
   parMD=sumMD['train_params']
   inpMD=sumMD['input_meta']

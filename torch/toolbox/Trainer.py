@@ -100,9 +100,10 @@ class Trainer():
     self.model=myModel.to(self.device)
     
     if self.verb:
-      print('\n\nT: torchsummary.summary(model):');
+      print('\n\nT: torchsummary.summary(model):',params['model']['inputShape']);
+      timeBins,inp_chan=params['model']['inputShape']
       from torchsummary import summary
-      summary(self.model,(1,4,1600))
+      summary(self.model,(1,timeBins,inp_chan))
       if self.verb>1: print(self.model)
 
     if self.isRank0: # save entirel model before training
@@ -215,8 +216,8 @@ class Trainer():
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
               rec3.update({'val':float(locTotValSamp/valT/kfac)})  # val samp/sec
 
-          lrTit='NI/LR'
-          if self.params['job_id']!=None: lrTit='NI/LR %s'%self.params['job_id']
+          lrTit='NI/LR nGpu=%d'%self.params['world_size']
+          if self.params['job_id']!=None: lrTit+=', %s'%self.params['job_id']
           self.TBSwriter.add_scalars('NI/loss ',rec1 , epoch)
           self.TBSwriter.add_scalar(lrTit, self.optimizer.param_groups[0]['lr'], epoch)
 

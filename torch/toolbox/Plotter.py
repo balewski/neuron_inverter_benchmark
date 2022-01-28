@@ -173,7 +173,7 @@ class Plotter_NeuronInverter(Plotter_Backbone):
         metaD=self.inpMD
         parName=metaD['parName']
         nPar=metaD['numPar']
-        nrow,ncol=3,5
+        nrow,ncol=4,5
         
         figId=self.smart_append(figId)
         fig=self.plt.figure(figId,facecolor='white', figsize=(2.75*ncol,2.2*nrow))

@@ -2,17 +2,16 @@
 # common job script for CoriGpu and Perlmutter using Shifter
 #SBATCH --time=50:00  -J ni_ref
 #SBATCH -C gpu
-#SBATCH --image=nersc/pytorch:ngc-21.08-v1
+#SBATCH --image=nersc/pytorch:ngc-21.08-v2
 #-SBATCH  -x cgpu08 # block sick nodes
 #---CORI_GPU---
 #-SBATCH  -N1 --ntasks-per-node=4  --gpus-per-task=1  --cpus-per-task=10
 #-SBATCH -N1 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=10 --exclusive
 #---PERLMUTTER---
 # see https://docs.nersc.gov/jobs/examples/#perlmutter-gpus
-#SBATCH -A dasrepo_g
-#SBATCH -N1 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#1 GPU visible to each task - remove 2 of them
-#-SBATCH --gpu-bind=map_gpu:0,1,2,3
+#SBATCH -A m3363_g
+#SBATCH -N1 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=16 --exclusive
+#-SBATCH --gpu-bind=map_gpu:0,1,2,3  # makes no difference??
 #-SBATCH --gpu-bind=map_gpu:3,2,1,0  
 # - - - E N D    O F    SLURM    C O M M A N D S4
 
@@ -25,36 +24,39 @@ export NCCL_NET_GDR_LEVEL=PHB  #on Direct RDMA
 #export NCCL_DEBUG=INFO # produces a lot of degugging
 
 #cellName=practice10c  # has 4.8M training samples
-cellName=witness2c # has 1M training samples
+#cellName=witness2c # has 1M training samples
+#cellName=practice140c  # has 21M train sampl, use w/ design=pmref
+cellName=witness17c   # has 2.6M train sampl, use w/ design=pmref
 #cellName=bbp153  # has 0.5M training samples
-design=gcref   # reference jobs for Graphcore
-epochs=40 # 161
+#design=gcref   # reference jobs for Graphcore
+design=pmref   # reference jobs for Perlmutter
+epochs=30 # 161, note 'other' may still overwrite it
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
+jobId=${SLURM_JOBID}
 export MASTER_ADDR=`hostname`
-echo S: job=${SLURM_JOBID} MASTER_ADDR=$MASTER_ADDR G=$G  N=$N 
+echo S: jobId=$jobId MASTER_ADDR=$MASTER_ADDR G=$G  N=$N 
 nodeList=$(scontrol show hostname $SLURM_NODELIST)
 echo S:node-list $nodeList
 
 # grab some variables from environment - if defined
-[[ -z "${NEUINV_INIT_LR}" ]] && initLRstr="  " || initLRstr=" --initLR ${NEUINV_INIT_LR} "
+[[ -z "${NEUINV_OTHER_PAR}" ]] && otherParStr="  " || otherParStr=" ${NEUINV_OTHER_PAR} "
 [[ -z "${NEUINV_WRK_SUFIX}" ]] && wrkSufix=$SLURM_JOBID || wrkSufix="${NEUINV_WRK_SUFIX}"
-[[ -z "${NEUINV_JOBID}" ]] && jobId=$SLURM_JOBID || jobId="G${G}_${NEUINV_JOBID}"
 env |grep NEUINV
-
-#wrkSufix=/G${G}_lr${NEUINV_INIT_LR}
 
 if [[  $NERSC_HOST == cori ]]   ; then
     echo "on Cori-GPU"
     facility=corigpu
+    ENGINE=" shifter "
     module unload pytorch
 elif [[  $NERSC_HOST == perlmutter ]]   ; then
     echo "on Perlmutter"
     facility=perlmutter
+    ENGINE=" shifter "
     module unload pytorch
     # bash -c 'printf "#include <stdio.h>\nint main() {  cudaFree(0);printf(\"cudaFree-done\"); }" > dummy.cu && nvcc -o dummy.exe dummy.cu'
     #  opening and closing a GPU context on each node to reset GPUs
@@ -62,17 +64,17 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/october
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/january
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  initLRstr=$initLRstr jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $jobId  $initLRstr  --epochs $epochs "
+export CMD=" python3 -u   train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $SLURM_JOBID  --epochs $epochs $otherParStr "
 
 echo CMD=$CMD
 
-codeList="  train_dist.py    toolbox/ batchShifter.slr  $design.hpar.yaml  "
+codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
 outPath=$wrkDir/out
 mkdir -p $outPath
@@ -80,11 +82,14 @@ cp -rp $codeList  $wrkDir
 cd  $wrkDir
 echo lsfPWD=`pwd`
 
+# this script records energy use by A100 - probabl;y it does not slow down the training - keep it for now
 ./toolbox/pm_continuous_log_energy.sh $jobId  300 >& log.energy_$jobId.csv &
 
 echo "starting  jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath "
 
-time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
+time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh  >& log.train
+echo S:train-done
 
-echo S:done
+time srun -n 1  $ENGINE  ./predict.py --modelPath out  --noXterm  >& log.pred
+echo S:pred-done
 date
