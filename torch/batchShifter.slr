@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # common job script for CoriGpu and Perlmutter using Shifter
-#SBATCH --time=50:00  -J ni_ref
+#SBATCH --time=1:50:00  -J ni_ref
 #SBATCH -C gpu
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
 #-SBATCH  -x cgpu08 # block sick nodes

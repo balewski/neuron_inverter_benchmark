@@ -214,11 +214,11 @@ class Trainer():
           if doVal:
               rec1['val']=float(valid_logs['loss'])
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
-              rec3.update({'val':float(locTotValSamp/valT/kfac)})  # val samp/sec
+              rec3.update({'val/2':float(locTotValSamp/valT/kfac)/2})  # val samp/sec
 
           lrTit='NI/LR nGpu=%d'%self.params['world_size']
           if self.params['job_id']!=None: lrTit+=', %s'%self.params['job_id']
-          self.TBSwriter.add_scalars('NI/loss ',rec1 , epoch)
+          self.TBSwriter.add_scalars('NI/Loss ',rec1 , epoch)
           self.TBSwriter.add_scalar(lrTit, self.optimizer.param_groups[0]['lr'], epoch)
 
           self.TBSwriter.add_scalars('NI/epoch time (sec) ',rec2 , epoch)
