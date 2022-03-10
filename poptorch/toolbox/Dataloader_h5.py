@@ -24,6 +24,7 @@ import copy
 from torch.utils.data import Dataset, DataLoader
 import torch 
 import logging
+
 import poptorch
     
 #...!...!..................
@@ -57,19 +58,31 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
     params['model']['inputShape']=list(dataset.data_frames.shape[1:])
     params['model']['outputSize']=dataset.data_parU.shape[1]
 
-    #shuffle=domain=='train'  # use False only for reproducibility
+    #shuffle=domain=='train'  # use False for reproducibility
     shuffle=True # both: train & val
 
     # Graphcore speciffic
     dataloader = poptorch.DataLoader(popopts,dataset,
-                             batch_size=conf['local_batch_size'],
-                             num_workers=conf['num_data_workers'],
-                             shuffle=shuffle,
-                             auto_distributed_partitioning=False, #to serve all data
+                                batch_size=conf['local_batch_size'],
+                                num_workers=conf['num_data_workers'],
+                                shuffle=shuffle,
+                                persistent_workers=True,
+                                mode=poptorch.DataLoaderMode.Async,
+                                async_options={
+                                    "sharing_strategy":
+                                    poptorch.SharingStrategy.SharedMemory,
+                                    "early_preload": True,
+                                    "buffer_size": conf['num_data_workers'],
+                                    "load_indefinitely": True,
+                                    "miss_sleep_time_in_ms": 0
+                                },
+                                auto_distributed_partitioning=False, #to serve all data
+                            #  mode=poptorch.DataLoaderMode.AsyncRebatched
                                      )
 
     dataloader.conf=conf
     #print('cc',len(dataloader))
+
     return dataloader
 
 
@@ -88,6 +101,8 @@ class Dataset_h5_neuronInverter(Dataset):
         assert self.numLocFrames>0
         assert self.conf['world_rank']>=0
 
+        #if type(data)==torch.Tensor: empty=torch.FloatTensor(empty)
+        # self.data_frames=  torch.HalfTensor(self.data_frames)
         if self.verb :
             logging.info(' DS:load-end %s locSamp=%d, X.shape: %s type: %s'%(self.conf['domain'],self.numLocFrames,str(self.data_frames.shape),self.data_frames.dtype))
             #print(' DS:Xall',self.data_frames.shape,self.data_frames.dtype)
@@ -138,14 +153,19 @@ class Dataset_h5_neuronInverter(Dataset):
         # data reading starts ....
         assert inpFeat<=Xshape[2]
         if inpFeat==Xshape[2]:
-            self.data_frames=h5f[dom+'_frames'][sampIdxOff:sampIdxOff+locSamp]#.astype('float32')
+            self.data_frames=h5f[dom+'_frames'][sampIdxOff:sampIdxOff+locSamp]
         else:
             self.data_frames=h5f[dom+'_frames'][sampIdxOff:sampIdxOff+locSamp,:,:inpFeat]
-        self.data_parU=h5f[dom+'_unitStar_par'][sampIdxOff:sampIdxOff+locSamp]#.astype('float32')
+        self.data_parU=h5f[dom+'_unitStar_par'][sampIdxOff:sampIdxOff+locSamp]
         if cf['doAux']:  #never used
             self.data_parP=h5f[dom+'_phys_par'][sampIdxOff:sampIdxOff+locSamp]
 
         h5f.close()
+
+        if self.conf['fp16_inputs']:
+            self.data_frames = self.data_frames.astype('float16')
+            self.data_parU = self.data_parU.astype('float16')
+
         # = = = READING HD5  done
         if self.verb>0 :
             startTm1 = time.time()

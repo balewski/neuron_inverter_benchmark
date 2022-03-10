@@ -6,7 +6,7 @@ __email__ = "janstar1122@gmail.com"
 Neuron-Inverter adopet for Graphcore 
 
 Quick test:
- ./train_replica.py --design dev  --epochs 5
+ ./train_replica.py --design hpar_dev  --epochs 5
 
 For LSTM do:
   ./train_replica.py --design hpar_dev3 (takes longer to start !!!)
@@ -18,14 +18,15 @@ Long training on 100 epochs on  10-cell data
 
 Multi-IPU training
 m=2
-poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design gc4  --outPath outZ --cellName witness2c
+poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design gc5  --outPath outX 
 
   
 '''
 
 import sys,os
-from toolbox.Util_IOfunc  import read_yaml, write_yaml
+from toolbox.Util_IOfunc import read_yaml, write_yaml
 from toolbox.Trainer import Trainer
+from toolbox import host_benchmark
 
 import argparse
 from pprint import pprint
@@ -37,14 +38,17 @@ import popdist
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--design", default='gc4',help='[.hpar.yaml] configuration of model and training')
+    parser.add_argument("--design", default='gc5',help='[.hpar.yaml] configuration of model and training')
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2,3],  help="increase output verbosity", default=1, dest='verb')
     parser.add_argument("-o","--outPath", default='out/', help=' all outputs, also TB')
+    parser.add_argument("--dataPath","--data-path", default='neuron-data/', help='if define, replaces data_path')
     parser.add_argument("--cellName", type=str, default='bbp153', help="cell shortName ")
     parser.add_argument("--numInpChan",default=None, type=int, help="if defined, reduces num of input channels")
     parser.add_argument("--initLR",default=None, type=float, help="if defined, replaces learning rate from hpar")
+    parser.add_argument("--gradientAcc",default=None, type=int, help="if defined, reduces gradient accumulation count")
     parser.add_argument("--epochs",default=None, type=int, help="if defined, replaces max_epochs from hpar")
     parser.add_argument("-j","--jobId", default=None, help="optional, aux info to be stored w/ summary")
+    parser.add_argument('--validation', action='store_true', help="enables validation")
 
     args = parser.parse_args()
     return args
@@ -67,12 +71,12 @@ if __name__ == '__main__':
     replicas_per_rank=total_replicas//world_size
     ipus_per_replica=popdist.getNumIpusPerReplica()
     total_ipus=total_replicas*ipus_per_replica
-    print("M:I am rank=%d of world=%d on host=%s, locReplias=%d devId %d totReplias=%d totIpus=%d replicas/rank=%d ipu/repl=%d"% (rank, world_size, host,locReplicas,device_id,total_replicas,total_ipus,replicas_per_rank,ipus_per_replica))
+    print("M:I am rank=%d of world=%d on host=%s, locReplias=%d devId %d totReplias=%d totIpus=%d repl/ranl=%d ipu/repl=%d"% (rank, world_size, host,locReplicas,device_id,total_replicas,total_ipus,replicas_per_rank,ipus_per_replica))
     # ....  GC survey done
-    
+
     args = get_parser()
     #for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
-    params = read_yaml( args.design+'.hpar.yaml',verb=rank==0)
+    params = read_yaml('configs/'+ args.design+ '.hpar.yaml', verb=rank==0)
     params['design']=args.design
     params['cell_name']=args.cellName        
     params['num_inp_chan']=args.numInpChan
@@ -81,6 +85,8 @@ if __name__ == '__main__':
     # overwrite default configuration
     if args.initLR!=None:
         params['train_conf']['optimizer'][1]= args.initLR
+    if args.gradientAcc!=None:
+        params['gc_m2000']['gradientAccumulation'] = args.gradientAcc
     if args.epochs!=None:
         params['max_epochs']= args.epochs
 
@@ -88,30 +94,32 @@ if __name__ == '__main__':
     params['world_size'] = world_size
     params['world_rank'] = rank
     params['total_replicas']=total_replicas
-   
+    
     params['verb']= args.verb * (rank==0)
     params['job_id']=args.jobId
-    
+    params['validation'] = args.validation
+    if args.dataPath:
+        params['data_path'] = args.dataPath
   
     # refine BS for multi-gpu configuration
     tmp_batch_size=params.pop('batch_size')
     if params['const_local_batch']: # faster but LR changes w/ num GPUs
         params['local_batch_size'] =tmp_batch_size
-        params['global_batch_size'] =tmp_batch_size*params['total_replicas']
+        params['global_batch_size'] =tmp_batch_size*params['total_replicas']*params['gc_m2000']['gradientAccumulation']
     else:
         params['local_batch_size'] = int(tmp_batch_size//params['world_size'])
-        params['global_batch_size'] = tmp_batch_size
+        params['global_batch_size'] = tmp_batch_size*params['gc_m2000']['gradientAccumulation']
 
     trainer = Trainer(params)
+
+    # Benchmark the dataloader
+    host_benchmark.benchmark_throughput(trainer.train_loader)
+
     trainer.train_replica()
 
     if rank>0: exit(0)
     
     sumF=args.outPath+'/sum_train.yaml'
     write_yaml(trainer.sumRec, sumF) 
-
-    if 0:
-        epoch=trainer.sumRec['epoch_stop']
-        
 
     print("M:done design", args.design)

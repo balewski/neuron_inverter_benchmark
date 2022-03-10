@@ -1,52 +1,52 @@
-Instruction on how to run Neuron-Inverter on multiple IPUs 
+Instruction on how to run Neuron-Inverter on multiple IPUs
 (The outstanding issues are listed at the bottom)
 
-Updated 2021-08-25  
+Updated 2021-10-22
 
 ***) Training data ():
-Upload this  files from 
-physcial: /global/cfs/cdirs/m2043/www/tryML/
+Download this 2 files from
 https://portal.nersc.gov/cfs/m2043/tryML/
 meta.cellSpike_excite_4prB8kHz.yaml
-bbp153_excite.cellSpike_4prB8kHz.data.h5     (15GB  0.5M samples)
-witness2c_excite.cellSpike_4prB8kHz.data.h5  (29GB, 1M samples)
-practice10c_excite.cellSpike_4prB8kHz.data.h5  (144GB, 5M samples)
+witness2c_excite.cellSpike_4prB8kHz.data.h5  (29 GB)
 
 and place them at the local directory on the M2000
 The witness2c...h5 contains ~1M training samples, 100 k validation, and 100k test samples
 
+NOTE: larger training data file (practice10c) w/ 5M samples, 144GB
+Pull it from here:
+https://portal.nersc.gov/cfs/m2043/tryML/practice10c_excite.cellSpike_4prB8kHz.data.h5
+
 
 ***) Code installation
 Pull the code from
-https://github.com/balewski/neuron_inverter_benchmark/tree/main
+https://bitbucket.org/balewski/digitalmind/src/master/graphcore/torch/neuronInverter_dist_iofree/
 
-git clone git@github.com:balewski/neuron_inverter_benchmark.git 
-edit 'data_path' in  hpar_gc4.yaml  to point at the data location
+edit 'data_path' in  gc4.yaml  to point at the data location
 
 *) quick test of code consistency on 1 IPU w/o poprun:
 Edit 'data_path'  hapr_dev.yaml as above
 execute:
-  ./train_replica.py --design hpar_dev --epochs 5 --cellName witness2c
+  ./train_replica.py --design dev --epochs 5 --cellName witness2c
 
-You should see the speed of ~40 samp/ms/IPU
-INFO - Epoch:  2, train step:   9, Avg samp/sec/replica: 40.5K
-and epoch duration of 5 sec.
+You should see the speed of ~80 samp/ms/IPU
+INFO - Epoch:  2, train step:   3, Avg samp/sec/instance: 80.6K
+and epoch duration of 0.13 sec.
 
 *) full scale training on mutipe IPUs, set m to number of IPUs
 m=8
-poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design hpar_gc4   --cellName witness2c --outPath outX 
+poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design gc4   --cellName witness2c --outPath outX
 
 The 1M of training samples is shuffled before storing in HD5. They are divided evenly between $m IPUs and shuffled only within each IPU during the training.
 
 ***) Hyperparameters & configuration
 
-*) hpar_gc.yaml contains all config for the ML model and GC (except the number of IPUs $m which are controlled by the poprun args)
+*) gc.yaml contains all config for the ML model and GC (except the number of IPUs $m which are controlled by the poprun args)
 In particular, those 2 params are critical for the scaling on multiple IPUs:
 
 batch_size: 192
 replica_steps_per_iter: 30
 
-The above hpar_gc4 config works for 1,2,4, and 8 IPUs.
+The above gc4 config works for 1,2,4, and 8 IPUs.
 The observed  trughputs  are
 1 IPU: 61 samp/ms/IPU  (base line)
 2 IPUs: 49 samp/ms/IPU
@@ -58,12 +58,12 @@ For the last 3 epochs, the true validation loss is computed correctly using the 
 It cost several minutes but is done once at the end which is fine for those tests.
 
 Here are the optimal initial learing rates on M2000 and acheived val-loss for witnes2c data set:
-numIPU  iniLR  val_loss  
+numIPU  iniLR  val_loss
 1 	5e-4 	0.021
 2 	1e-3 	0.021
 4 	1e-3 	0.022
 8 	2e-3 	0.023
-16 	2e-3 	0.022  (using local BS=96) 
+16 	2e-3 	0.022  (using local BS=96)
 
 For the 'witnes2c' data set the val-loss typically stabilizes after ~140 epochs - I keep the training running until 160 epochs.
 
@@ -79,15 +79,20 @@ The output of the training consists of the trained model (not used for anything 
 
 One can view the TB plots from the laptop by setting a X11 tunnely with the following commands:
 ssh -A  -Y -L localhost:9998:localhost:9998 lr66-poplar3.usclt-pod1.graphcloud.ai
+Or
+ssh -A  -Y -L localhost:9998:localhost:9998 lr67-1-poplar-1
 (activate conda to have tensroboard)
+If you do it successfully, you will login to the IPU machine passwordlessly.
+Then you stay with this remote system and enable the virutalenv that enables tensorboard.
+
 cd digitalMind/graphcore/torch/neuronInverter_dist_iofree/
 tensorboard --logdir=outABC --port 9998
 
 Next, on your laptop open browser and point it to
- http://0.0.0.0:9998/ 
+ http://0.0.0.0:9998/
 
 
-= = = = = = = = Misc issues = = = = = 
+= = = = = = = = Misc issues = = = = =
 0) FYI: for the reference, the same Neuron-Inverter code running on multiple GPUs using PyTorch and Slurm is avaliable here:
 https://bitbucket.org/balewski/digitalmind/src/master/torch/examples-class/neuronInverter_dist_iofree/
 
@@ -119,5 +124,12 @@ class Model(torch.nn.Module):
          return out
 
 And make sure all still works - it is fine with me.
+
+5) I ran into `cannot serialize a bytes object larger than 4 GiB` error.
+This will require a small modification on `/usr/lib/python3.6/multiprocessing/popen_spawn_posix.py` line 46 - 47 to the following:
+```
+reduction.dump(prep_data, fp, 4)
+reduction.dump(process_obj, fp, 4)
+```
 
 
