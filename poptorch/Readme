@@ -67,3 +67,21 @@ poprun -vv --host $HOSTS --mpi-global-args='--tag-output --allow-run-as-root ' -
 We use 1 host for 2, 4, 8 and 16 IPUs, and 4 hosts for 16 and 32 IPUs.
 Please change to use your own folder of OUTPATH and DATAPATH, and HOSTS,
 REPLICAS, PARTITION, VIPU_SERVER_HOST and NETMASK.
+
+ = = = =
+
+To test POD16, you may specify
+1. number of replicas
+2. learning rate
+3. gradient accumulation count
+
+You may type:
+  bash ./run-pod16.sh 8 0.005 10
+
+Before running run-pod16.sh, you may modify the data path where you store
+the dataset. If you want to test different values for above three variables and
+run multiple times, you may modify test-pod16.sh and type:
+  bash test-pod16.sh 2>&1 | tee r16.log
+
+To check the final TTT and throughput with a particular learning rate(initLR), you may do:
+  grep "Epoch 160" r16.log

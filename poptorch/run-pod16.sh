@@ -1,8 +1,8 @@
 # This script is for a POD16 with a single host.
 # To run it using 1 replica 1 instance:
-#   bash run-pod16.sh 1
+#   bash run-pod16.sh 1 0.005 10
 # Or any number of replicas, up to 16, for example,
-#   bash run-pod16.sh 4
+#   bash run-pod16.sh 4 0.005 5
 # Please modify the data path and your output path if you don't use /localdata.
 
 export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead" : "unlimited"}'
