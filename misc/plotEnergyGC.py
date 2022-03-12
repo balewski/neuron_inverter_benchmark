@@ -33,7 +33,7 @@ def get_parser():
     args = parser.parse_args()
     args.prjName='eneGC'
    
-    args.sourcePath='data-sept17/'
+    args.sourcePath='gc-ene-data-20210917/'
  
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args

@@ -7,7 +7,7 @@ __author__ = "Jan Balewski"
 __email__ = "janstar1122@gmail.com"
 
 import numpy as np
-import  time
+import  time,os
 from pprint import pprint
 from toolbox.Plotter_Backbone import Plotter_Backbone
 from toolbox.Util_IOfunc import read_one_csv
@@ -28,11 +28,12 @@ def get_parser():
 
 
     args = parser.parse_args()
-    args.prjName='cosmoHpo'
+    args.prjName='eneUse'
 
     #PM
     
-    args.sourcePath='/pscratch/sd/b/balewski/tmp_digitalMind/neuInv/benchmark/september/'
+    #args.sourcePath='/pscratch/sd/b/balewski/tmp_digitalMind/neuInv/benchmark/september/'
+    args.sourcePath='pm-ene-data-2021-09-19'
     args.formatVenue='prod'
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args
@@ -128,7 +129,7 @@ args=get_parser()
 
 stockD={}
 jobId=args.jobId
-inpF=args.sourcePath+'%s/log.energy_%s.csv'%(jobId,jobId)
+inpF=os.path.join(args.sourcePath,'log.energy_%s.csv'%(jobId))
 table,label=read_one_csv(inpF)
 jobD=ana_one_job(jobId,table)
 plot=Plotter_EnergyUse(args)
