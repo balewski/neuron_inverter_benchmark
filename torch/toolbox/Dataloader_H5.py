@@ -144,6 +144,12 @@ class Dataset_h5_neuronInverter(Dataset):
             
         # .......................................................
         #.... data embeddings, transformation should go here ....
+
+        if self.conf['fp16_inputs']:
+            self.data_frames = self.data_frames.astype('float16')
+            self.data_parU = self.data_parU.astype('float16')
+
+
         useUpar=cf['train_conf']['recover_upar_from_ustar']
         if self.verb: print('DLI:recover_upar_from_ustar',useUpar,cf['cell_name'],self.data_parU.dtype)
         if useUpar:

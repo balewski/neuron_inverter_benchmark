@@ -158,8 +158,7 @@ class Trainer():
                    'input_meta':inpMD,
                    'trainTime_sec':-1,
                    'loss_valid':-1,
-                   'epoch_start': int(self.startEpoch),
-                   'job_id': params['job_id'],
+                   'epoch_start': int(self.startEpoch),                   
       }
 
       
@@ -187,7 +186,6 @@ class Trainer():
       train_logs = self.train_one_epoch()
       t2 = time.time()
       if doVal:  valid_logs = self.validate_one_epoch()
-      t3 = time.time()
       tend = time.time()
       
       if epoch >= warmup_epochs and  doVal :
@@ -204,7 +202,7 @@ class Trainer():
       if self.isRank0:
           totT=tend-tbeg
           trainT=t2-tbeg
-          valT=t3-t2
+          valT=tend-t2
           rec1={'train':train_logs['loss']}
           rec2={'train':trainT,'tot':totT,'val':valT}  # time per epoch
           locTotTrainSamp=len(self.train_loader)*self.train_loader.batch_size

@@ -1,6 +1,7 @@
 #!/bin/bash -l
 # common job script for CoriGpu and Perlmutter using Shifter
-#SBATCH --time=1:50:00  -J ni_ref
+#-SBATCH --time=1:20:00  -J ni_ref
+#SBATCH --time=20:00  -J ni_deb
 #SBATCH -C gpu
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
 #-SBATCH  -x cgpu08 # block sick nodes
@@ -28,7 +29,7 @@ cellName=witness17c   # has 2.6M train sampl, use w/ design=pmref
 #cellName=bbp153  # has 0.5M training samples
 #design=gcref   # reference jobs for Graphcore
 design=pmref   # reference jobs for Perlmutter
-epochs=30 # 161, note 'other' may still overwrite it
+#epochs=30 # 161, note 'other' may still overwrite it
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
@@ -65,17 +66,19 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/january
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchSC22
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $SLURM_JOBID  --epochs $epochs $otherParStr "
+export CMD=" python3 -u   train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $SLURM_JOBID  $otherParStr "
+
+#spare:  --epochs $epochs 
 
 echo CMD=$CMD
 
-codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
+codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  *.hpar.yaml  "
 
 outPath=$wrkDir/out
 mkdir -p $outPath

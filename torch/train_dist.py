@@ -74,7 +74,7 @@ if __name__ == '__main__':
     #os.environ['MASTER_ADDR'] = os.environ['SLURM_LAUNCH_NODE_IPADDR']
     os.environ['RANK'] = os.environ['SLURM_PROCID']
     os.environ['WORLD_SIZE'] = os.environ['SLURM_NTASKS']
-    params['local_rank'] = int(os.environ['SLURM_LOCALID'])
+    params['local_rank'] = 0 # fixed 2022-03  int(os.environ['SLURM_LOCALID'])
 
   params['world_size'] = int(os.environ['WORLD_SIZE'])
     
