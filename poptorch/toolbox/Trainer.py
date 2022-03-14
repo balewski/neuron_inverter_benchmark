@@ -169,6 +169,7 @@ class Trainer():
       #from torchinfo import summary
       #summary(myModel,(1,4,1600))#, batch_size=1, device='cuda')
 
+    if self.isRank0:
       # save entirel model before training
       modelF = params['out_path']+'/blank_model.pth'
       torch.save(myModel, modelF)
