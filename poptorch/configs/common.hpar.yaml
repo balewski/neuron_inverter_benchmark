@@ -29,12 +29,12 @@ gc_m2000:
 fp16_inputs: True
 fp16_model: False
 
-num_data_workers: 2
+num_data_workers: 4
 
 log_freq_per_epoch: 3
   
 train_conf:
-   warmup_epochs: 6
+   warmup_epochs: 5
    optimizer: [AdamW, 6e-3] # initLR
    LRsched: { plateau_patience: 8, reduceFactor: 0.11 }
    #LRsched: {  decay_epochs: 20, gamma: 0.09 }
