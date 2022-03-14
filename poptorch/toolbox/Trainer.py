@@ -153,7 +153,6 @@ class Trainer():
     # must know the number of steps to decided how often to print
     self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
 
-    torch.manual_seed(42)
     myModel=NeuInvModel(params, verb=self.verb)
 
     if self.params['fp16_model']:

@@ -36,7 +36,7 @@ log_freq_per_epoch: 3
 train_conf:
    warmup_epochs: 6
    optimizer: [AdamW, 6e-3] # initLR
-   LRsched: { plateau_patience: 8, reduceFactor: 0.05 }
+   LRsched: { plateau_patience: 8, reduceFactor: 0.11 }
    #LRsched: {  decay_epochs: 20, gamma: 0.09 }
 
 model:
@@ -53,7 +53,7 @@ model:
 
     fc_block: # FC params w/o last layer
         dims: [ 512, 512, 512, 256, 128 ]
-        dropFrac: 0.01
+        dropFrac: 0.05
     
          
 # not tested on GC
