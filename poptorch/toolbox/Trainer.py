@@ -253,8 +253,11 @@ class Trainer():
 
     pvti.Tracepoint.begin(channel, "train_replica")
 
+    self.do_compilation(self.train_loader)
+
     startTrain = time.time()
     valTime = 0.0
+
     #. . . . . . .  epoch loop start . . . . . . . .
     for epoch in range(self.startEpoch, self.params['max_epochs']):
 
@@ -276,10 +279,6 @@ class Trainer():
       t1 = time.time()
       train_logs = self.train_one_epoch(self.train_loader)
       t2 = time.time()
-
-      # remove the time of the 1st epoch to avoid compilation time
-      if epoch == self.startEpoch:
-          startTrain = t2
 
       if self.validation:
           if self.doVal :
@@ -381,8 +380,16 @@ class Trainer():
       except:
          if self.params['log_to_screen'] and self.verb:
            logging.warn('trainig  not executed?')
-      logging.info('Epoch 160 took TTT=%.4f seconds to train'%(time.time()-valTime-startTrain))
+      logging.info('Epoch %d took TTT=%.4f seconds to train'%(self.params['max_epochs'] -1, time.time()-valTime-startTrain))
     pvti.Tracepoint.end(channel, "train_replica")
+
+#...!...!..................
+  def do_compilation(self, dataLoader):
+    for ist, (data, target) in enumerate(dataLoader):
+      if not self.compiled:
+          self.model4train.compile(data, target)
+          self.compiled = True
+      break
 
 #...!...!..................
   def train_one_epoch(self,dataLoader):
@@ -394,9 +401,6 @@ class Trainer():
     # Graphcore speciffic
     loss=0
     for ist, (data, target) in enumerate(dataLoader):
-        if not self.compiled:
-          self.model4train.compile(data, target)
-          self.compiled = True
 
         loss = 1
         report_time = time.time() # reset timer
