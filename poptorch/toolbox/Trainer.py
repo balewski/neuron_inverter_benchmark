@@ -5,6 +5,7 @@ import os,time
 from pprint import pprint,pformat
 import socket  # for hostname
 import numpy as np
+import numpy.distutils as distutils
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import poptorch
