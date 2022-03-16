@@ -87,9 +87,12 @@ class Trainer():
       delayMe=params['gc_m2000']['stagger_delay_sec']* params['world_rank']
       time.sleep(delayMe)
 
-    self.train_loader = get_data_loader(params, inpMD,'train', popOpts,verb=self.verb)
+    trainingPopOpts = popOpts
+    trainingPopOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
+    popOpts.Training.gradientAccumulation(1)
+    self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
     if self.valPeriod[1]>0:
-        self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
+        self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', trainingPopOpts, verb=self.verb)
         if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
 
         self.valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
