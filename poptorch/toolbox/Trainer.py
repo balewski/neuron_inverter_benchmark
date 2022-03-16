@@ -1,17 +1,15 @@
 __author__ = "Jan Balewski"
 __email__ = "janstar1122@gmail.com"
 
-import copy # to create copy of options
-import ctypes
-import os
-import time
+import os,time
 from pprint import pprint,pformat
 import socket  # for hostname
 import numpy as np
-import numpy.distutils
+import numpy.distutils as distutils
 import torch
 from torch.utils.tensorboard import SummaryWriter
-import popart
+import poptorch
+import popdist.poptorch
 
 import logging
 logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
@@ -20,54 +18,12 @@ from toolbox.Model import NeuInvModel , MyModelWithLoss
 from toolbox.Dataloader_h5 import get_data_loader
 from toolbox.Util_IOfunc import read_yaml
 
-import pickle
-pickle.DEFAULT_PROTOCOL=4
-
-import poptorch
-import popdist
-import popdist.poptorch
-
-import libpvti as pvti
-channel = pvti.createTraceChannel("LBL")
 
 #............................
 #............................
 #............................
 class Trainer():
 #...!...!..................
-
-  def _get_poptorch_options(self, params, for_training):
-
-    trainingPopOpts = popdist.poptorch.Options()
-    trainingPopOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
-
-    if for_training:
-      trainingPopOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
-    else:
-      trainingPopOpts.Training.gradientAccumulation(1)
-
-
-    if 'num_io_tiles' in params['gc_m2000'] and params['gc_m2000']['num_io_tiles'] >= 32:
-      print("using io tiles")
-      trainingPopOpts.TensorLocations.numIOTiles(params['gc_m2000']['num_io_tiles'])
-      trainingPopOpts.setExecutionStrategy(poptorch.ShardedExecution())
-    trainingPopOpts.outputMode(poptorch.OutputMode.All)
-    trainingPopOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
-
-    if self.params['fp16_model']:
-      trainingPopOpts.Precision.setPartialsType(torch.half)
-    if params['gc_m2000']['enableSyntheticData']:
-      trainingPopOpts.enableSyntheticData(True)
-
-    if 'prefetch_depth' in self.params['gc_m2000']:
-      trainingPopOpts._Popart.set("defaultPrefetchBufferingDepth", self.params['gc_m2000']['prefetch_depth'])
-
-    if self.isDist:
-      trainingPopOpts.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
-
-    return trainingPopOpts
-
-
   def __init__(self, params):
 
     self.params = params
@@ -76,8 +32,6 @@ class Trainer():
     self.isRank0=params['world_rank']==0
     self.valPeriod=params['validation_period']
     self.isDist=params['world_size']>1
-    self.compiled = False
-    self.validation = params['validation']
 
     self.device = popdist.popdist_core.getDeviceId()
     logging.info('T:ini world rank %d of %d, host=%s  see device=%s'%(params['world_rank'],params['world_size'],socket.gethostname(),str(self.device)))
@@ -89,7 +43,7 @@ class Trainer():
         if not os.path.isdir(expDir2):  os.makedirs(expDir2)
 
 
-    params['checkpoint_path'] = os.path.join(expDir, 'checkpoints/ckpt.pth')
+    params['checkpoint_name'] =  'ckpt.pth'
     params['resuming'] =  params['resume_checkpoint'] and os.path.isfile(params['checkpoint_path'])
 
 
@@ -106,32 +60,38 @@ class Trainer():
     inpMD=bulk['dataInfo']
     self.inpMD=inpMD
 
+    popOpts = popdist.poptorch.Options()
+    if self.params['fp16_model']:
+      popOpts.Precision.setPartialsType(torch.half)
+    popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
+    if params['gc_m2000']['graph_caching']:
+      cachePath='./exec_cache'
+      popOpts.enableExecutableCaching(cachePath)
+      if  self.verb: logging.info('caching to %s'%(cachePath))
+
+    if 'num_io_tiles' in params['gc_m2000'] and params['gc_m2000']['num_io_tiles'] >= 32:
+      print("using io tiles")
+      popOpts.TensorLocations.numIOTiles(params['gc_m2000']['num_io_tiles'])
+      popOpts.setExecutionStrategy(poptorch.ShardedExecution())
+    popOpts.outputMode(poptorch.OutputMode.All)
+    popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
+
     if self.isDist:
       import horovod.torch as hvd
       hvd.init()
       self.hvd=hvd
       if self.verb: logging.info('T:horovod started, num ranks=%d, stagger_delay %d sec/rank'%(hvd.size(),params['gc_m2000']['stagger_delay_sec']))
+      popOpts.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
 
       # it may be an overkill, but w-load of 500 can't be healthy, mostlikely it is due to IO from up to 16 HD5 from data loaders and/or  rading cached graphs
       delayMe=params['gc_m2000']['stagger_delay_sec']* params['world_rank']
       time.sleep(delayMe)
 
-    trainingPopOpts = self._get_poptorch_options(params, for_training=True)
-    inferencePopOpts = self._get_poptorch_options(params, for_training=False)
-
-    if 'use_all_reduce' in self.params['gc_m2000'] and self.params['gc_m2000']['use_all_reduce']:
-
-      trainingPopOpts._Popart.setPatterns({"TiedGather": True, "TiedGatherAccumulate": True, "UpdateInplacePrioritiesForIpu": True})
-
-    self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
-    if self.validation:
-        if self.valPeriod[1]>0:
-            self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', trainingPopOpts, verb=self.verb)
-            if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
-
-            self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
-            # if self.params['gc_m2000']['pseudoValidation']: next(iter(self.valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
-            if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
+    self.train_loader = get_data_loader(params, inpMD,'train', popOpts,verb=self.verb)
+    if self.valPeriod[1]>0:
+        self.valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
+        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
+        if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
 
     if self.verb:
       logging.info('rank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
@@ -153,28 +113,28 @@ class Trainer():
     # must know the number of steps to decided how often to print
     self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
 
+
     myModel=NeuInvModel(params, verb=self.verb)
 
     if self.params['fp16_model']:
       myModel = myModel.half()
+
+    if self.isRank0: # save entirel model before training
+        modelF ='blank_model.pth'
+        params["blank_model"]=modelF
+        torch.save( myModel, params['out_path']+'/'+modelF)
+        logging.info('T: saved blank model to%s'%modelF)
 
     modelWloss=MyModelWithLoss(myModel)
     if self.isDist:
       hvd.broadcast_parameters(modelWloss.state_dict(), root_rank=0)
 
     if self.verb>1:
-      print('\n\nT: torchsummary.summary(myModel):')
+      print('\n\nT: torchsummary.summary(myModel):');
       print(myModel)
       #from torchsummary import summary
       #from torchinfo import summary
       #summary(myModel,(1,4,1600))#, batch_size=1, device='cuda')
-
-    if self.isRank0:
-      # save entirel model before training
-      modelF = params['out_path']+'/blank_model.pth'
-      torch.save(myModel, modelF)
-      print('T: saved blank model',modelF)
-      params["blank_path"]=modelF
 
 
     tcf=params['train_conf']
@@ -200,9 +160,9 @@ class Trainer():
 
 
     if self.verb: logging.info("Poptorch create model start ...")
-    self.model4train = poptorch.trainingModel(modelWloss, options=trainingPopOpts, optimizer=self.optimizer)
+    self.model4train = poptorch.trainingModel(modelWloss, options=popOpts, optimizer=self.optimizer)
     if  self.valPeriod[1]>0:
-        self.model4infer = poptorch.inferenceModel(modelWloss, options=inferencePopOpts)
+        self.model4infer = poptorch.inferenceModel(modelWloss, options=popOpts)
         if self.verb: logging.info("Poptorch create inference model done")
 
     # choose type of LR decay schedule
@@ -248,61 +208,50 @@ class Trainer():
 
     bestLoss=1e20
     TperEpoch=[]
+    startTrain = time.time()
     warmup_epochs=self.params['train_conf']['warmup_epochs']
     optName, initLR=self.params['train_conf']['optimizer']
 
-    pvti.Tracepoint.begin(channel, "train_replica")
-
-    self.do_compilation(self.train_loader)
-
-    startTrain = time.time()
-    valTime = 0.0
-
     #. . . . . . .  epoch loop start . . . . . . . .
     for epoch in range(self.startEpoch, self.params['max_epochs']):
-
-      self.doVal = False
       self.epoch= epoch
       # decide if validation runs
-      if self.validation:
-          self.doVal= (epoch %  self.valPeriod[0]) < self.valPeriod[1]
-          if self.valPeriod[1]>0 and epoch >= self.params['max_epochs']-2:
-              if self.verb: logging.info('use true val-pass for epoch=%d'%epoch)
-              self.doVal=True
-              self.params['gc_m2000']['pseudoValidation']=False
+      self.doVal= (epoch %  self.valPeriod[0]) < self.valPeriod[1]
+      if self.valPeriod[1]>0 and epoch >= self.params['max_epochs']-2:
+        if self.verb: logging.info('use true val-pass for epoch=%d'%epoch)
+        self.doVal=True
+        self.params['gc_m2000']['pseudoValidation']=False
 
       # Apply learning rate warmup for some optimizers
       if epoch < warmup_epochs:
           self.optimizer.param_groups[0]['lr'] = initLR*float(epoch+1.)/float(warmup_epochs)
-          self.model4train.setOptimizer(self.optimizer) # propagate LR to compiled grap
+          self.model4train.setOptimizer(self.optimizer) # propagate LR to compiled graph
+
 
       t1 = time.time()
       train_logs = self.train_one_epoch(self.train_loader)
       t2 = time.time()
 
-      if self.validation:
-          if self.doVal :
-              if self.params['gc_m2000']['pseudoValidation']:
-                  # use Alex trick: no graph swapping but switch to pseudo-training using optimizer w/ LR=0
-                  self.model4train.setOptimizer(self.fakeOptimizer) # AdamW w/ LR-0
-                  t3 = time.time()
-                  valid_logs = self.train_one_epoch(self.pseudo_valid_loader)
-                  t4 = time.time()
-                  self.model4train.setOptimizer(self.optimizer) # restore training
-                  t5 = time.time()
-              else:
-                  #.... do graph swap WORKING - very slow
-                  self.model4train.detachFromDevice() #GC needs it
-                  if self.model4infer._executable:  self.model4infer.attachToDevice()
-                  t3 = time.time()
-                  valid_logs = self.validate_one_epoch()
-                  t4 = time.time()
-                  self.model4infer.detachFromDevice() #GC needs it
-                  if self.model4train._executable:  self.model4train.attachToDevice()
-                  t5 = time.time()
-                  # valTime is to store the validation time, which includes compilation time now
-                  valTime = t5 - t3
-              loss_val=np.mean(valid_logs['loss'])
+      if self.doVal :
+          if self.params['gc_m2000']['pseudoValidation']:
+              # use Alex trick: no graph swapping but switch to pseudo-training using optimizer w/ LR=0
+              self.model4train.setOptimizer(self.fakeOptimizer) # AdamW w/ LR-0
+              t3 = time.time()
+              valid_logs = self.train_one_epoch(self.valid_loader)
+              t4 = time.time()
+              self.model4train.setOptimizer(self.optimizer) # restore training
+              t5 = time.time()
+          else:
+              #.... do graph swap WORKING - very slow
+              self.model4train.detachFromDevice() #GC needs it
+              if self.model4infer._executable:  self.model4infer.attachToDevice()
+              t3 = time.time()
+              valid_logs = self.validate_one_epoch()
+              t4 = time.time()
+              self.model4infer.detachFromDevice() #GC needs it
+              if self.model4train._executable:  self.model4train.attachToDevice()
+              t5 = time.time()
+          loss_val=np.mean(valid_logs['loss'])
 
       tend = time.time()
       loss_train=np.mean(train_logs['loss'])
@@ -346,19 +295,13 @@ class Trainer():
           else:
             tAvr=tStd=0
 
-          # txt='Epoch %d took %.3f sec, avr=%.2f +/-%.2f sec/epoc, elaT=%.1f sec, nIPU=%d, LR=%.2e, Loss: train=%.4f'%(
-          #   epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,self.optimizer.param_groups[0]['lr'],loss_train
-          # )
-
-          txt='Epoch %d took %.3f sec (train + DL + logging) avg %.3f sec, avg step time %.3f sec, epoch time with DL %.3f sec, tput %.2f samp/sec, nIPU=%d, initLR=%.2e, LR=%.2e, Loss: train=%.4f'%(
-            epoch, totT, tAvr, train_logs['step_time'], train_logs['epoch_time'], train_logs['tput'], self.params['total_replicas'], self.params['train_conf']['optimizer'][1], self.optimizer.param_groups[0]['lr'], loss_train
-          )
+          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nIPU=%d, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,self.optimizer.param_groups[0]['lr'],loss_train)
           if self.doVal:
             pseu='pseudo-' if self.params['gc_m2000']['pseudoValidation'] else ''
             txt+=', %sval=%.4f'%(pseu,loss_val)
           if epoch%5==0:
-              self.TBSwriter.add_text('summary',txt , epoch)
-          if self.verb:  logging.info(txt)
+             self.TBSwriter.add_text('summary',txt , epoch)
+          if self.verb:  logging.info(txt )
 
       if self.isRank0:
         if self.params['save_checkpoint'] and bestLoss> valid_logs['loss']:
@@ -368,60 +311,51 @@ class Trainer():
           bestLoss= valid_logs['loss']
           logging.info('save_checkpoint for epoch %d , val-loss=%.3g'%(epoch + 1, bestLoss) )
 
+
     #. . . . . . .  epoch loop end . . . . . . . .
 
-    if self.params['world_rank'] == 0:  # create summary record
+    if self.isRank0:  # create checkpoint and summary record
+      outF2=os.path.join(self.params['out_path'],self.params['checkpoint_name'])
+      #self.save_checkpoint(outF2,self.model4train,self.optimizer,epoch)
+      logging.info('E:training saved:%s'%outF2)
+
       # add info to summary
       try:
-        rec={'epoch_stop':epoch+1, 'state':'model_trained','loss_train':float(loss_train)}
+        rec={'epoch_stop':epoch, 'state':'model_trained','loss_train':float(loss_train)}
         rec['trainTime_sec']=time.time()-startTrain
         if self.doVal: rec['loss_valid']=float(loss_val)
         self.sumRec.update(rec)
       except:
          if self.params['log_to_screen'] and self.verb:
            logging.warn('trainig  not executed?')
-      logging.info('Epoch %d took TTT=%.4f seconds to train'%(self.params['max_epochs'] -1, time.time()-valTime-startTrain))
-    pvti.Tracepoint.end(channel, "train_replica")
 
-#...!...!..................
-  def do_compilation(self, dataLoader):
-    for ist, (data, target) in enumerate(dataLoader):
-      if not self.compiled:
-          self.model4train.compile(data, target)
-          self.compiled = True
-      break
 
 #...!...!..................
   def train_one_epoch(self,dataLoader):
 
-    self.model4train.train()
-    step_time = []
+    report_time = time.time()
     report_bs = 0
-    t1 = time.time()
+
+    self.model4train.train()
     # Graphcore speciffic
     loss=0
     for ist, (data, target) in enumerate(dataLoader):
-
-        loss = 1
-        report_time = time.time() # reset timer
         _, loss_op = self.model4train(data, target)
-        train_time = time.time() - report_time
         loss += loss_op.numpy()
 
-        step_time.append(train_time)
         report_bs += data.size()[0]
-        # print('x'*60, ' ' ,data.size(),report_bs )
+        #print('xx',i,data.size(),report_bs )
         # only reports speed in mid-epoch
-        if ist % self.params['log_freq_step'] == 0:
-          if self.verb: logging.info('Epoch: %2d, train step: %3d, train time: %.3f sec, Avg samp/sec/instance: %.1fK'%(self.epoch, ist, train_time, 1e-3*data.size()[0] / (time.time() - report_time)))
-          # report_time = time.time()
-          # report_bs = 0
-    t2 = time.time()
+        if ist % self.params['log_freq_step'] == 0 and ist>0:
+          if self.verb: logging.info('Epoch: %2d, train step: %3d, Avg samp/sec/replica: %.1fK'%(self.epoch, ist, 1e-3*report_bs / (time.time() - report_time)))
+          report_time = time.time()
+          report_bs = 0
+
     loss /= len(dataLoader)
     if self.isDist>0:
         loss = np.mean(self.hvd.allgather_object(loss))
 
-    logs = {'loss': loss, 'step_time': np.mean(step_time), 'epoch_time': t2 - t1, 'tput': report_bs/(t2-t1)}
+    logs = {'loss': loss,}
     return logs
 
 
@@ -463,3 +397,4 @@ class Trainer():
     self.iters = checkpoint['iters']
     self.startEpoch = checkpoint['epoch'] + 1
     self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
