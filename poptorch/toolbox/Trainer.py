@@ -89,8 +89,10 @@ class Trainer():
 
     self.train_loader = get_data_loader(params, inpMD,'train', popOpts,verb=self.verb)
     if self.valPeriod[1]>0:
+        self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
+        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
+
         self.valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
-        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
         if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
 
     if self.verb:
@@ -237,7 +239,7 @@ class Trainer():
               # use Alex trick: no graph swapping but switch to pseudo-training using optimizer w/ LR=0
               self.model4train.setOptimizer(self.fakeOptimizer) # AdamW w/ LR-0
               t3 = time.time()
-              valid_logs = self.train_one_epoch(self.valid_loader)
+              valid_logs = self.train_one_epoch(self.pseudo_valid_loader)
               t4 = time.time()
               self.model4train.setOptimizer(self.optimizer) # restore training
               t5 = time.time()
