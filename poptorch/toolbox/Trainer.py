@@ -300,7 +300,7 @@ class Trainer():
           else:
             tAvr=tStd=0
 
-          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nIPU=%d, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,self.optimizer.param_groups[0]['lr'],loss_train)
+          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nIPU=%d, initLR=%.2e, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,initLR, self.optimizer.param_groups[0]['lr'], loss_train)
           if self.doVal:
             pseu='pseudo-' if self.params['gc_m2000']['pseudoValidation'] else ''
             txt+=', %sval=%.4f'%(pseu,loss_val)
