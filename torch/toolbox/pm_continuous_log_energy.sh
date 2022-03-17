@@ -1,4 +1,5 @@
 #!/bin/bash
+# based on Sep 17, 2021, at 11:27 AM, Sridutt Bhalachandra <sriduttb@lbl.gov>
 if [[  $NERSC_HOST != perlmutter ]]   ; then
     echo  continuous energy counter runs only on PM, skip
     exit

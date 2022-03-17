@@ -37,7 +37,7 @@ opt_pytorch:
 
 train_conf:
     warmup_epochs: 5
-    optimizer: [adam, 5e-3] # initLR
+    optimizer: [adam, 2e-3] # initLR
     LRsched: { plateau_patience: 8, reduceFactor: 0.11  }
     recover_upar_from_ustar: False # True: will un-do ontra scaling to upar*
 

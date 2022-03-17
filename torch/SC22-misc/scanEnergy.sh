@@ -5,20 +5,19 @@ set -u ;  # exit  if you try to use an uninitialized variable
 #set -o errexit ;  # exit if any statement returns a non-true return value
 
 k=0
-nodes=4
-taskPerNode=4
-#epochs=30
-cellName=practice140c
-#cellName=witness2c
-design=pmref
+nodes=1
+taskPerNode=2
+cellName=witness2c
+design=gcrefSC22
 G=$[ ${taskPerNode} * ${nodes} ]
 echo N=${nodes} G=$G
-for lr in  .0001 .0002 .0005 .001  .002 .005  ; do 
-    jobId=fp16inp_lr${lr}    
+
+for epochs in  50 150  ; do 
+    jobId=epoch$epochs
     echo job=$jobId
-    export NEUINV_WRK_SUFIX="G${G}scan/$jobId"
-    export NEUINV_OTHER_PAR=" --initLR ${lr}  --jobId ${jobId} --cellName $cellName --design $design "  # will overwrite any other settings
-    # spare: --epochs ${epochs} 
+    export NEUINV_WRK_SUFIX="G${G}ene/$jobId"
+    export NEUINV_OTHER_PAR="   --jobId ${jobId} --cellName $cellName --design $design  --epochs ${epochs} "  # will overwrite any other settings
+    # spare:  
     
     sbatch  -N $nodes --ntasks-per-node $taskPerNode batchShifter.slr      # PM
     #./batchShifter.slr      # PM  - interactive

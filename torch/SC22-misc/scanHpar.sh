@@ -5,15 +5,16 @@ set -u ;  # exit  if you try to use an uninitialized variable
 #set -o errexit ;  # exit if any statement returns a non-true return value
 
 k=0
-nodes=4
+nodes=8
 taskPerNode=4
-#epochs=30
-cellName=practice140c
-#cellName=witness2c
-design=pmref
+#epochs=184
+#cellName=practice140c
+cellName=witness2c
+design=gcrefSC22
 G=$[ ${taskPerNode} * ${nodes} ]
 echo N=${nodes} G=$G
-for lr in  .0001 .0002 .0005 .001  .002 .005  ; do 
+for lr in   .001  .002 .005 .01 .02  ; do 
+#for lr in  .005   ; do 
     jobId=fp16inp_lr${lr}    
     echo job=$jobId
     export NEUINV_WRK_SUFIX="G${G}scan/$jobId"

@@ -1,4 +1,4 @@
-# Neur-inver  config for reference obs vs. Graphcore
+# Neuron-inver  config for reference obs vs. Graphcore
 #
 # choose data pathe depending on facility
 probe_type: 8inhib157c_3prB8kHz   # Ontra3
@@ -13,6 +13,8 @@ data_path:
 max_epochs: 161  
 batch_size: 512
 const_local_batch: True   # True is faster  but LR changes w/ num GPUs
+fp16_inputs: True
+
 # validation is computed if  epoch%period<len
 validation_period: [1, 1] # [ period, len] (epochs)
 
