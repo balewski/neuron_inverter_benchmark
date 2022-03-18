@@ -286,13 +286,13 @@ class Trainer():
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
               rec3.update({'val':float(locTotValSamp/valT/kfac)})  # val samp/sec
 
-          lrTit='LR'
+          lrTit='NI/LR'
           if self.params['job_id']!=None: lrTit='LR %s'%self.params['job_id']
-          self.TBSwriter.add_scalars('loss',rec1 , self.epoch)
+          self.TBSwriter.add_scalars('NI/loss',rec1 , self.epoch)
           self.TBSwriter.add_scalar(lrTit, self.optimizer.param_groups[0]['lr'], self.epoch)
 
-          self.TBSwriter.add_scalars('epoch time (sec) ',rec2 , self.epoch)
-          self.TBSwriter.add_scalars('glob_speed (k samp:sec) ',rec3 , self.epoch)
+          self.TBSwriter.add_scalars('NI/epoch time (sec) ',rec2 , self.epoch)
+          self.TBSwriter.add_scalars('NI/glob_speed (k samp:sec) ',rec3 , self.epoch)
           if epoch>self.startEpoch  and self.params['gc_m2000']['pseudoValidation']: TperEpoch.append(totT)  # use only mid-stream
           tV=np.array(TperEpoch)
           if len(tV)>0:

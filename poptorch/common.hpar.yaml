@@ -27,7 +27,7 @@ gc_m2000:
     prefetch_depth: 1
 
 fp16_inputs: True
-fp16_model: False
+fp16_model: True
 
 num_data_workers: 2
 
