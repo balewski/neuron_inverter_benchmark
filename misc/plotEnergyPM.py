@@ -20,7 +20,7 @@ def get_parser():
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2],help="increase output verbosity", default=1, dest='verb')
 
     parser.add_argument("-j", "--jobId",default='65244',  help=" job ID")
-    parser.add_argument("--tag",default=None,  help=" extra string in the path")
+    parser.add_argument("-t","--tag",default=None,  help=" extra string in the path")
 
     parser.add_argument("-o", "--outPath", default='out/',help="output path for plots and tables")
 

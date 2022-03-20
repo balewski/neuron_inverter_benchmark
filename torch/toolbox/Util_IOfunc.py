@@ -35,11 +35,11 @@ def write_yaml(rec,ymlFn,verb=1):
 
    
 #...!...!..................
-def read_one_csv(fname,delim=','):
+def read_one_csv(fname,fieldnames=None,delim=','):
     print('read_one_csv:',fname)
     tabL=[]
     with open(fname) as csvfile:
-        drd = csv.DictReader(csvfile, delimiter=delim)
+        drd = csv.DictReader(csvfile,fieldnames, delimiter=delim)
         print('see %d columns'%len(drd.fieldnames),drd.fieldnames)
         for row in drd:
             tabL.append(row)

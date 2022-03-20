@@ -1,6 +1,6 @@
 #!/bin/bash -l
 # common job script for CoriGpu and Perlmutter using Shifter
-#SBATCH --time=1:30:00  -J ni_ref
+#SBATCH --time=5:30:00  -J ni_ref
 #-SBATCH --time=20:00  -J ni_deb
 #SBATCH -C gpu
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
@@ -66,7 +66,8 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchKewei
+#wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchKewei
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchSC22
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
@@ -89,9 +90,11 @@ echo S:PWD=`pwd`
 # this script records energy use by A100 - probably it does not slow down the training - keep it for now
 ./toolbox/pm_continuous_log_energy.sh $jobId  3000 >& log.energy_$jobId.csv &
 eneId=$!
+sleep 60
 echo "starting eneId=$eneId for jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath "
 time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh  >& log.train
 echo S:train-done
+sleep 60
 kill $eneId  # otherwise it will run past trainung, bad in interactive mode
 
 time srun -n 1  $ENGINE  ./predict.py --modelPath out  --noXterm  >& log.pred

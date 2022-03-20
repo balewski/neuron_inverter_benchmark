@@ -5,12 +5,14 @@ set -u ;  # exit  if you try to use an uninitialized variable
 #set -o errexit ;  # exit if any statement returns a non-true return value
 
 k=0
-nodes=1
-taskPerNode=2
+nodes=1 ; taskPerNode=1 ; runTime=50:00
+nodes=1 ; taskPerNode=2 ; runTime=30:00
+nodes=8 ; taskPerNode=4 ; runTime=20:00
+
 cellName=witness2c
 design=gcrefSC22
 G=$[ ${taskPerNode} * ${nodes} ]
-echo N=${nodes} G=$G
+echo N=${nodes} G=$G runTime=$runTime
 
 for epochs in  50 150  ; do 
     jobId=epoch$epochs
@@ -19,7 +21,7 @@ for epochs in  50 150  ; do
     export NEUINV_OTHER_PAR="   --jobId ${jobId} --cellName $cellName --design $design  --epochs ${epochs} "  # will overwrite any other settings
     # spare:  
     
-    sbatch  -N $nodes --ntasks-per-node $taskPerNode batchShifter.slr      # PM
+    sbatch  -N $nodes --ntasks-per-node $taskPerNode --time $runTime -J ni_ene  batchShifter.slr      # PM
     #./batchShifter.slr      # PM  - interactive
     sleep 1
     k=$[ ${k} + 1 ]

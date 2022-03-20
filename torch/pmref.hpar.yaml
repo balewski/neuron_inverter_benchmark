@@ -20,7 +20,7 @@ validation_period: [1, 1] # [ period, len] (epochs)
 
 num_data_workers: 4  
 log_freq_per_epoch: 3
-tb_show_graph: True
+tb_show_graph: False  # disable if fp16_input=True
 
 save_checkpoint: False  # only when loss improves
 resume_checkpoint: False  # False: always start over 
