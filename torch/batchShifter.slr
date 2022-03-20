@@ -25,7 +25,7 @@
 #cellName=practice10c  # has 4.8M training samples
 #cellName=witness2c # has 1M training samples
 #cellName=practice140c  # has 21M train sampl, use w/ design=pmref
-cellName=witness17c   # has 2.6M train sampl, use w/ design=pmref
+cellName=witness17c_fp16   # has 2.6M train sampl, use w/ design=pmref
 #cellName=bbp153  # has 0.5M training samples
 #design=gcref   # reference jobs for Graphcore
 design=pmref   # reference jobs for Perlmutter
@@ -67,7 +67,8 @@ fi
 
 
 #wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchKewei
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchSC22
+#wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchSC22
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/test
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
@@ -90,11 +91,11 @@ echo S:PWD=`pwd`
 # this script records energy use by A100 - probably it does not slow down the training - keep it for now
 ./toolbox/pm_continuous_log_energy.sh $jobId  3000 >& log.energy_$jobId.csv &
 eneId=$!
-sleep 60
+#1sleep 60  # enamble to also get idle energy use
 echo "starting eneId=$eneId for jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath "
-time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh  >& log.train
+time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh   >& log.train
 echo S:train-done
-sleep 60
+#1sleep 60
 kill $eneId  # otherwise it will run past trainung, bad in interactive mode
 
 time srun -n 1  $ENGINE  ./predict.py --modelPath out  --noXterm  >& log.pred

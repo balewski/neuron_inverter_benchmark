@@ -42,10 +42,6 @@ def get_data_loader(params, inpMD,domain, verb=1):
   shuffle=conf['shuffle']
   
   dataset=  Dataset_h5_neuronInverter(conf,verb)
-  if 'max_samples_per_epoch' in params:
-        max_samp= params['max_samples_per_epoch']
-        print('GDL: WARN, shorter %s max_samples=%d from %d'%(domain,max_samp,dataset.numLocFrames))
-        dataset.numLocFrames=min(dataset.numLocFrames,max_samp)
 
   
   # return back some of info
@@ -111,7 +107,13 @@ class Dataset_h5_neuronInverter(Dataset):
         h5f = h5py.File(inpF, 'r')
         Xshape=h5f[dom+'_frames'].shape
         totSamp=Xshape[0]
-        
+
+        if 'max_glob_samples_per_epoch' in cf:  # special case, reduce input size
+            max_samp= cf['max_glob_samples_per_epoch']
+            #print('DS: WARN1, dom=%s shorter max_samp=%d from %d'%(dom,max_samp,totSamp))
+            if self.verb>0 : logging.info('DS: WARN, dom=%s shorter max_samp=%d from %d'%(dom,max_samp,totSamp))
+            totSamp=min(totSamp,max_samp)
+
         if dom=='exper':  # special case for exp data
           cf['local_batch_size']=totSamp
 
@@ -145,11 +147,16 @@ class Dataset_h5_neuronInverter(Dataset):
         # .......................................................
         #.... data embeddings, transformation should go here ....
 
-        if self.conf['fp16_inputs']:
-            self.data_frames = self.data_frames.astype('float16')
-            self.data_parU = self.data_parU.astype('float16')
+        #print('aaa1',self.data_frames.dtype,self.data_frames.dtype==np.float16,dom)
+        if dom=='test' and self.data_frames.dtype==np.float16:
+            print('DS Info: cast input data from fp16 to fp32 for predictions')
+            # if fp16_input=True, RuntimeError: "unfolded2d_copy" not implemented for 'Half'
+            #Reason: Mixed Precision is only supported on GPU’s, not CPU’s (this is a hardware not a software thing)
 
-
+            self.data_frames = self.data_frames.astype('float32')
+            self.data_parU = self.data_parU.astype('float32')
+        #print('aaa2',self.data_frames.dtype,self.data_frames.dtype==np.float16)
+        
         useUpar=cf['train_conf']['recover_upar_from_ustar']
         if self.verb: print('DLI:recover_upar_from_ustar',useUpar,cf['cell_name'],self.data_parU.dtype)
         if useUpar:

@@ -124,7 +124,7 @@ if __name__ == '__main__':
       parMD['cell_name']=args.cellName
 
   if args.numSamples!=None:
-      parMD['max_samples_per_epoch' ] = args.numSamples
+      parMD['max_glob_samples_per_epoch' ] = args.numSamples
   domain='test'
   parMD['world_size']=1
 

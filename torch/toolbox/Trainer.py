@@ -93,7 +93,10 @@ class Trainer():
        dataD=next(iter(self.train_loader))
        images, labels = dataD
        t1=time.time()
-       self.TBSwriter.add_graph(myModel,images.to('cpu'))
+       # next line is so complex to also work for inp=fp16 and avoid: RuntimeError: "unfolded2d_copy" not implemented for 'Half'
+
+       imageFP32=images.to('cpu',dtype=torch.float32)
+       self.TBSwriter.add_graph(myModel,imageFP32)
        t2=time.time()
        if self.verb:  logging.info('show model graph at TB took %.1f sec'%(t2-t1))
     

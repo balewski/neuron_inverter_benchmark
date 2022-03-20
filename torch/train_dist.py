@@ -14,7 +14,7 @@ Run on 4 GPUs on 1 node
  salloc -N1 -C gpu  -c 10 --gpus-per-task=1 -t4:00:00  --ntasks-per-node=4 
 
 Full node
- salloc -N1 --ntasks-per-node=8  -C gpu  -c 10   --gpus-per-task=1   --exclusive  -t4:00:00    --image=nersc/pytorch:ngc-21.02-v0
+ salloc -N1 --ntasks-per-node=8  -C gpu  -c 10   --gpus-per-task=1   --exclusive  -t4:00:00   --image=nersc/pytorch:ngc-21.08-v2
 
 
 '''
@@ -35,9 +35,9 @@ def get_parser():
   parser = argparse.ArgumentParser()
   parser.add_argument("--design", default='gcref', help='[.hpar.yaml] configuration of model and training')
   parser.add_argument("-o","--outPath", default='/global/cscratch1/sd/balewski/tmp_digitalMind/neuInv/manual/', type=str)
-  parser.add_argument("--facility", default='corigpu', help='data location differes')
-  parser.add_argument("--cellName", type=str, default='bbp153', help="cell shortName ")
-  parser.add_argument("--numInpChan",default=None, type=int, help="if defined, reduces num of input channels")
+  parser.add_argument("--facility", default='perlmutter', help='data location differes')
+  parser.add_argument("--cellName", type=str, default='witness17c', help="cell shortName ")
+  parser.add_argument("--numInpChan",default=None, type=int, help="if defined, it will reduces num of input channels")
   parser.add_argument("--initLR",default=None, type=float, help="if defined, replaces learning rate from hpar")
   parser.add_argument("--epochs",default=None, type=int, help="if defined, replaces max_epochs from hpar")
    
