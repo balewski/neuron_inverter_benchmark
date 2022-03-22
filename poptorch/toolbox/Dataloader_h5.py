@@ -68,8 +68,6 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
                              persistent_workers=True,
                              mode=poptorch.DataLoaderMode.Async,
                              async_options={
-                                 "sharing_strategy":
-                                 poptorch.SharingStrategy.SharedMemory,
                                  "early_preload": True,
                                  "buffer_size": conf['num_data_workers'],
                                  "load_indefinitely": True,
