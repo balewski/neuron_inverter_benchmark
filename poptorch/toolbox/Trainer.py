@@ -29,11 +29,6 @@ class Trainer():
     popOpts = popdist.poptorch.Options()
     popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
 
-    if params['gc_m2000']['graph_caching']:
-      cachePath='./exec_cache'
-      popOpts.enableExecutableCaching(cachePath)
-      if  self.verb: logging.info('caching to %s'%(cachePath))
-
     if for_training:
       popOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
     else:
