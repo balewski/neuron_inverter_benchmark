@@ -5,12 +5,13 @@ probe_type: 8inhib157c_3prB8kHz   # Ontra3
 
 data_path:
   corigpu: /global/cfs/cdirs/m2043/balewski/neuronBBP-pack8kHzRam/probe_4prB8kHz/ontra4/etype_excite_v1/ # Ontra4 on Cori+PM
-  perlmutter: /global/cfs/cdirs/m2043/balewski/neuronBBP-pack8kHzRam/probe_3prB8kHz/ontra3/etype_8inhib_v1 # Ontra3 on Cori+PM
-  #perlmutter: /global/cfs/cdirs/m2043/balewski/neuronBBP-pack8kHzRam/probe_4prB8kHz/ontra4/etype_excite_v1/ # Ontra4 on PM=Cori
+  #perlmutter: /global/cfs/cdirs/m2043/balewski/neuronBBP-pack8kHzRam/probe_3prB8kHz/ontra3/etype_8inhib_v1 # BBP
+  #perlmutter: /global/cfs/cdirs/m2043/balewski/neuronBBP-pack8kHzRam/probe_4prB8kHz/ontra4/etype_excite_v1/ # BBP
+  perlmutter: /global/cfs/cdirs/m2043/balewski/neuronBBP2-pack8kHzRam/probe_4prB8kHz/ontra4 # BBP2
   summit_ontra3: /gpfs/alpine/nro106/proj-shared/neuronBBP-pack8kHzRam/probe_3prB8kHz/ontra3/etype_8inhib_v1
   summit: /gpfs/alpine/nro106/proj-shared/neuronBBP-pack8kHzRam/probe_4prB8kHz/ontra4/etype_excite_v1/ # ontra3
 
-max_epochs: 161  
+max_epochs: 16  
 batch_size: 512
 const_local_batch: True   # True is faster  but LR changes w/ num GPUs
 #max_glob_samples_per_epoch: 80000  # uncoment to skip data

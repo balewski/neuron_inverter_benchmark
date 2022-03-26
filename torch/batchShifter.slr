@@ -67,14 +67,14 @@ fi
 
 
 #wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchKewei
-#wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchSC22
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/test
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/april_GCpaper
+#wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/test
 wrkDir=$wrkDir0/$wrkSufix
 
 echo "S:cellName=$cellName  jobId=$jobId  wrkSufix=$wrkSufix wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $SLURM_JOBID  $otherParStr "
+export CMD=" python3    train_dist.py --cellName $cellName   --facility $facility  --outPath ./out --design $design --jobId $SLURM_JOBID  $otherParStr "
 
 #spare:  --epochs $epochs 
 
@@ -89,13 +89,13 @@ cd  $wrkDir
 echo S:PWD=`pwd`
 
 # this script records energy use by A100 - probably it does not slow down the training - keep it for now
-./toolbox/pm_continuous_log_energy.sh $jobId  3000 >& log.energy_$jobId.csv &
+./toolbox/pm_continuous_log_energy.sh $jobId  3000 >& log.energy.csv &
 eneId=$!
-#1sleep 60  # enamble to also get idle energy use
+sleep 60  # enamble to also get idle energy use
 echo "starting eneId=$eneId for jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath "
 time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh   >& log.train
 echo S:train-done
-#1sleep 60
+sleep 60
 kill $eneId  # otherwise it will run past trainung, bad in interactive mode
 
 time srun -n 1  $ENGINE  ./predict.py --modelPath out  --noXterm  >& log.pred

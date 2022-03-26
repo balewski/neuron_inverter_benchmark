@@ -11,9 +11,11 @@ data_path:
   summit_ontra3: /gpfs/alpine/nro106/proj-shared/neuronBBP-pack8kHzRam/probe_3prB8kHz/ontra3/etype_8inhib_v1
   summit: /gpfs/alpine/nro106/proj-shared/neuronBBP-pack8kHzRam/probe_4prB8kHz/ontra4/etype_excite_v1/ # ontra3
 
-max_epochs: 161  
-batch_size: 512
+max_epochs: 151  
+batch_size: 1024 # 512
 const_local_batch: True   # True is faster  but LR changes w/ num GPUs
+#max_glob_samples_per_epoch: 80000  # uncoment to skip data
+
 # validation is computed if  epoch%period<len
 validation_period: [1, 1] # [ period, len] (epochs)
 
@@ -36,7 +38,7 @@ opt_pytorch:
     zerograd: True
 
 train_conf:
-    warmup_epochs: 5
+    warmup_epochs: 8
     optimizer: [adam, 5e-3] # initLR
     LRsched: { plateau_patience: 8, reduceFactor: 0.11  }
     recover_upar_from_ustar: False # True: will un-do ontra scaling to upar*

@@ -154,6 +154,9 @@ class Trainer():
     if self.verb:  logging.info(self.model)
  
     if self.isRank0:  # create summary record
+      self.bestValLoss=999
+      self.bestValEpoch=-1
+             
       self.sumRec={'train_params':params,
                    'host_name' : socket.gethostname(),
                    'num_ranks': params['world_size'],
@@ -199,7 +202,7 @@ class Trainer():
           #checkpoint at the end of every epoch  if loss improved
           self.save_checkpoint(self.params['checkpoint_path'])
           bestLoss= valid_logs['loss']
-          logging.info('save_checkpoint for epoch %d , val-loss=%.3g'%(epoch + 1, bestLoss) )
+          logging.info('save_checkpoint for epoch %d , val_loss=%.3g'%(epoch + 1, bestLoss) )
 
       # . . . .   only logging and histogramming below . . . . .    
       if self.isRank0:
@@ -216,7 +219,9 @@ class Trainer():
               rec1['val']=float(valid_logs['loss'])
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
               rec3.update({'val/2':float(locTotValSamp/valT/kfac)/2})  # val samp/sec
-
+              if self.bestValLoss*0.98> rec1['val']:
+                  self.bestValLoss= rec1['val']
+                  self.bestValEpoch=epoch
           lrTit='NI/LR nGpu=%d'%self.params['world_size']
           if self.params['job_id']!=None: lrTit+=', %s'%self.params['job_id']
           self.TBSwriter.add_scalars('NI/Loss ',rec1 , epoch)
@@ -230,12 +235,14 @@ class Trainer():
           else:
             tAvr=tStd=-1
 
-          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nGpu=%d, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['world_size'] ,self.optimizer.param_groups[0]['lr'],train_logs['loss'])
+          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nGpu=%d, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['world_size'] ,train_logs['loss'])
           if doVal:  txt+=', val=%.4f'%valid_logs['loss']
-          if epoch%5==0:
-             self.TBSwriter.add_text('summary',txt , epoch)
+          if epoch%5==0: self.TBSwriter.add_text('summary',txt , epoch)
           if self.verb:  logging.info(txt )
-
+          if epoch%10==0:
+              txt2='best  val_loss=%.4f in epoch=%d'%(self.bestValLoss,self.bestValEpoch)
+              self.TBSwriter.add_text('best',txt2 , epoch)
+              if self.verb:  logging.info(txt2 )
         
     #. . . . . . .  epoch loop end . . . . . . . .
     
@@ -248,6 +255,8 @@ class Trainer():
         rec={'epoch_stop':epoch+1, 'state':'model_trained','loss_train':float(train_logs['loss']),'loss_valid':float(valid_logs['loss'])}
         rec['trainTime_sec']=time.time()-startTrain
         rec['timePerEpoch_sec']=[float('%.2f'%x) for x in [tAvr,tStd] ]
+        rec['bestValLoss']=self.bestValLoss
+        rec['bestValEpoch']=self.bestValEpoch
         self.sumRec.update(rec)
       except:
          if  self.verb:
