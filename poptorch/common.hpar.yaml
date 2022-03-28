@@ -3,14 +3,14 @@ comment: LR sched and BS optimized for 1 IPU traning
 
 # choose data path depending on facility
 #data_path: /home/balewskij/neuron-data/  # GraphCore, M2000, lr66
-data_path: /localdata/alext/data/neuron-data/
+data_path: /mnt/poddata/users/janel/neuron-data-new/
 
-probe_type: excite_4prB8kHz  
+probe_type: excite2_4prB8kHz  #  BBP2
 
-max_epochs: 184
-batch_size: 192
+max_epochs: 151
+batch_size: 180
 # validation is on for epoch%period<len
-validation_period: [10, 4] # [ period, lenOn] (epochs), lenOn=0 is Off
+validation_period: [1, 1] # [ period, lenOn] (epochs), lenOn=0 is Off
 
 const_local_batch: True # True: faster, LR changes w/ num IPUs	
 #max_samples_per_epoch: 8000  # uncoment to skip data

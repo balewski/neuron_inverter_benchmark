@@ -26,4 +26,5 @@ LEARNING_RATE=$2
 GRADIENT_ACCUMULATION=$3
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 
-poprun -vv --mpi-global-args='--tag-output --allow-run-as-root ' --mpi-local-args=' -x OPAL_PREFIX -x LD_LIBRARY_PATH -x PATH -x PYTHONPATH -x IPUOF_VIPU_API_TIMEOUT=600 -x POPLAR_LOG_LEVEL=INFO -x POPLAR_RUNTIME_OPTIONS -x POPTORCH_CACHE_DIR -x TEMPDIR -x TMPDIR -x TEMP -x TMP' --ipus-per-replica 1 --numa-aware 1 --num-instances $REPLICAS --num-replicas $REPLICAS ./train_replica.py --design common --cellName witness2c --outPath /localdata/$USER/ga"$GA"/r"$REPLICAS"_lr"$LEARNING_RATE"/"$TIMESTAMP" --data-path $DATA_PATH --validation --initLR $LEARNING_RATE --gradientAcc $GRADIENT_ACCUMULATION
+poprun -vv --mpi-global-args='--tag-output --allow-run-as-root ' --mpi-local-args=' -x OPAL_PREFIX -x LD_LIBRARY_PATH -x PATH -x PYTHONPATH -x IPUOF_VIPU_API_TIMEOUT=600 -x POPLAR_RUNTIME_OPTIONS -x POPTORCH_CACHE_DIR -x TEMPDIR -x TMPDIR -x TEMP -x TMP' --ipus-per-replica 1 --numa-aware 1 --num-instances $REPLICAS --num-replicas $REPLICAS ./train_replica.py --design common --cellName witness13c_fp16 --outPath /localdata/$USER/ga"$GA"/r"$REPLICAS"_lr"$LEARNING_RATE"/"$TIMESTAMP" --initLR $LEARNING_RATE --gradientAcc $GRADIENT_ACCUMULATION
+#--epochs 1
