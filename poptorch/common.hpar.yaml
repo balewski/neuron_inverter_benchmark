@@ -8,7 +8,7 @@ data_path: /mnt/poddata/users/janel/neuron-data-new/
 probe_type: excite2_4prB8kHz  #  BBP2
 
 max_epochs: 151
-batch_size: 180
+batch_size: 96
 # validation is on for epoch%period<len
 validation_period: [1, 1] # [ period, lenOn] (epochs), lenOn=0 is Off
 
@@ -16,7 +16,7 @@ const_local_batch: True # True: faster, LR changes w/ num IPUs
 #max_samples_per_epoch: 8000  # uncoment to skip data
 
 gc_m2000:
-    replica_steps_per_iter: 5
+    replica_steps_per_iter: 1
     graph_caching: True
     pseudoValidation: True
     stagger_delay_sec:  0
@@ -29,7 +29,7 @@ gc_m2000:
 fp16_inputs: True
 fp16_model: True
 
-num_data_workers: 2
+num_data_workers: 1
 
 log_freq_per_epoch: 3
   
