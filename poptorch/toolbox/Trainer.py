@@ -300,7 +300,8 @@ class Trainer():
               valid_logs = self.validate_one_epoch()
               t4 = time.time()
               self.model4infer.detachFromDevice() #GC needs it
-              if self.model4train._executable:  self.model4train.attachToDevice()
+              if self.model4train._executable and epoch < self.params['max_epochs']-1:
+                  self.model4train.attachToDevice()
               t5 = time.time()
           loss_val=np.mean(valid_logs['loss'])
 
