@@ -92,37 +92,6 @@ class Trainer():
     inpMD=bulk['dataInfo']
     self.inpMD=inpMD
 
-    # popOpts = popdist.poptorch.Options()
-    # if self.params['fp16_model']:
-    #   popOpts.Precision.setPartialsType(torch.half)
-    # popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
-    # if params['gc_m2000']['graph_caching']:
-    #   cachePath='./exec_cache'
-    #   popOpts.enableExecutableCaching(cachePath)
-    #   if  self.verb: logging.info('caching to %s'%(cachePath))
-
-    # if 'num_io_tiles' in params['gc_m2000'] and params['gc_m2000']['num_io_tiles'] >= 32:
-    #   print("using io tiles")
-    #   popOpts.TensorLocations.numIOTiles(params['gc_m2000']['num_io_tiles'])
-    #   popOpts.setExecutionStrategy(poptorch.ShardedExecution())
-    # popOpts.outputMode(poptorch.OutputMode.All)
-    # popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
-
-    # if self.isDist:
-    #   import horovod.torch as hvd
-    #   hvd.init()
-    #   self.hvd=hvd
-    #   if self.verb: logging.info('T:horovod started, num ranks=%d, stagger_delay %d sec/rank'%(hvd.size(),params['gc_m2000']['stagger_delay_sec']))
-    #   popOpts.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
-
-    #   # it may be an overkill, but w-load of 500 can't be healthy, mostlikely it is due to IO from up to 16 HD5 from data loaders and/or  rading cached graphs
-    #   delayMe=params['gc_m2000']['stagger_delay_sec']* params['world_rank']
-    #   time.sleep(delayMe)
-
-    # trainingPopOpts = popOpts
-    # trainingPopOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
-    # popOpts.Training.gradientAccumulation(1)
-
     if self.isDist:
       import horovod.torch as hvd
       hvd.init()
