@@ -157,9 +157,9 @@ class Dataset_h5_neuronInverter(Dataset):
 
         h5f.close()
 
-        if self.conf['fp16_inputs']:
-            self.data_frames = self.data_frames.astype('float16')
-            self.data_parU = self.data_parU.astype('float16')
+        #if self.conf['fp16_inputs']:
+        #    self.data_frames = self.data_frames.astype('float16')
+        #    self.data_parU = self.data_parU.astype('float16')
 
         # = = = READING HD5  done
         if self.verb>0 :

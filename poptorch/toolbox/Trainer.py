@@ -64,6 +64,7 @@ class Trainer():
     self.isRank0=params['world_rank']==0
     self.valPeriod=params['validation_period']
     self.isDist=params['world_size']>1
+    self.compiled = False
 
     self.device = popdist.popdist_core.getDeviceId()
     logging.info('T:ini world rank %d of %d, host=%s  see device=%s'%(params['world_rank'],params['world_size'],socket.gethostname(),str(self.device)))
@@ -106,11 +107,17 @@ class Trainer():
     inferencePopOpts = self._get_poptorch_options(params, for_training=False)
 
     self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
+    self.memory_footprint('train data loaded. sleep 10 seconds... ')
+
     if self.valPeriod[1]>0:
         self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', trainingPopOpts, verb=self.verb)
+        self.memory_footprint('first val data loaded. sleep 10 seconds... ')
+
         if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
 
         self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
+        self.memory_footprint('second val data loaded. sleep 10 seconds... ')
+
         if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
 
     if self.verb:
@@ -232,6 +239,8 @@ class Trainer():
     warmup_epochs=self.params['train_conf']['warmup_epochs']
     optName, initLR=self.params['train_conf']['optimizer']
 
+    self.memory_footprint('Before the training loop')
+
     #. . . . . . .  epoch loop start . . . . . . . .
     for epoch in range(self.startEpoch, self.params['max_epochs']):
       self.epoch= epoch
@@ -251,6 +260,9 @@ class Trainer():
       t1 = time.time()
       train_logs = self.train_one_epoch(self.train_loader)
       t2 = time.time()
+
+      if self.epoch == self.params['max_epochs']-1:
+          self.memory_footprint("..first or last epoch, sleep 10 sec..")
 
       if self.doVal :
           if self.params['gc_m2000']['pseudoValidation']:
@@ -352,6 +364,19 @@ class Trainer():
 
 
 #...!...!..................
+  def memory_footprint(self, caption):
+    logging.info(caption)
+    n = np.zeros(shape=(64), dtype=np.float32)
+    tensor = torch.Tensor(n)
+    if self.isDist:
+      avg_value = self.hvd.allreduce(tensor, average=True)
+    returned_value = os.system("top ibn1 ; free -g")
+    time.sleep(10)
+    returned_value = os.system("top ibn1 ; free -g")
+    time.sleep(10)
+    logging.info('done with sleep...' + caption)
+
+#...!...!..................
   def train_one_epoch(self,dataLoader):
 
     report_time = time.time()
@@ -361,6 +386,11 @@ class Trainer():
     # Graphcore speciffic
     loss=0
     for ist, (data, target) in enumerate(dataLoader):
+        if not self.compiled:
+          self.model4train.compile(data, target)
+          self.compiled = True
+          self.memory_footprint('after the compilation')
+
         _, loss_op = self.model4train(data, target)
         loss += loss_op.numpy()
 
