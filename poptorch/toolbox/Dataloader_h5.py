@@ -57,13 +57,17 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
     params['model']['inputShape']=list(dataset.data_frames.shape[1:])
     params['model']['outputSize']=dataset.data_parU.shape[1]
 
+    num_data_workers = conf['num_data_workers']
+    if 'num_data_workers' in params:
+        num_data_workers = params['num_data_workers']
+
     #shuffle=domain=='train'  # use False only for reproducibility
     shuffle=True # both: train & val
 
     # Graphcore speciffic
     dataloader = poptorch.DataLoader(popopts,dataset,
                              batch_size=conf['local_batch_size'],
-                             num_workers=conf['num_data_workers'],
+                             num_workers=num_data_workers,
                              shuffle=shuffle,
                              persistent_workers=True,
                              mode=poptorch.DataLoaderMode.AsyncRebatched,

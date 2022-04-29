@@ -46,6 +46,7 @@ def get_parser():
     parser.add_argument("--epochs",default=None, type=int, help="if defined, replaces max_epochs from hpar")
     parser.add_argument("-j","--jobId", default=None, help="optional, aux info to be stored w/ summary")
     parser.add_argument("--gradientAcc",default=None, type=int, help="if defined, reduces gradient accumulation count")
+    parser.add_argument("--numDataWorkers",default=None, type=int, help="if defined, replaces num_data_workers from hpar")
 
     args = parser.parse_args()
     return args
@@ -86,6 +87,8 @@ if __name__ == '__main__':
         params['gc_m2000']['gradientAccumulation'] = args.gradientAcc
     if args.epochs!=None:
         params['max_epochs']= args.epochs
+    if args.numDataWorkers!=None:
+        params['num_data_workers'] = args.numDataWorkers
 
     # ... rank dependent config .....
     params['world_size'] = world_size
