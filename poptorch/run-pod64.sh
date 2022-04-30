@@ -1,11 +1,34 @@
 # This is the script to be called by test.sh
 # good for 1 to 256 IPUs using a single host or multiple hosts
-if [[ "$#" -gt 8 ||  "$#" == 0 ]]
+if [[ "$#" -gt 9 ||  "$#" == 0 ]]
 then
-    echo "Usage: $0 NUM_REPLICAS HOSTS PARTITION SERVER NETMASK LR GRAD_ACC"
+    echo "Usage: $0 NUM_REPLICAS HOSTS PARTITION SERVER NETMASK LR GRAD_ACC NUM_DATA_WORKERS"
     exit 1
 fi
 # Please modify the data path and your output path if you don't use /localdata.
+
+HOST1=lr67-1-poplar-1
+HOST2=lr67-1-poplar-2
+HOST3=lr67-1-poplar-3
+HOST4=lr67-1-poplar-4
+j=1
+for i in $HOST1 $HOST2 $HOST3 $HOST4
+  do
+  MEM=`mpirun --tag-output --prefix $OPAL_PREFIX --allow-run-as-root --mca oob_tcp_if_include 10.5.0.0/16 --mca btl_tcp_if_include 10.5.0.0/16 --host $i top ibn1 | grep avail | cut -d "+" -f 1 | cut -d "." -f 2 | cut -d " " -f 2`
+  if [[ "$MEM" -lt 48000000 ]] #49529488+total
+    then
+      echo "The memory on $i is $MEM out of 49529488; in use. Test it later"
+      exit 1
+    else
+      echo "The memory on $i is $MEM; OK to use"
+  fi
+  j=$((j+1))
+  done
+
+HOSTS=$HOST1,$HOST2,$HOST3,$HOST4
+
+echo "clear the cache now..."
+clear=`mpirun --tag-output --prefix $OPAL_PREFIX --allow-run-as-root --mca oob_tcp_if_include 10.5.0.0/16 --mca btl_tcp_if_include 10.5.0.0/16 --host $HOSTS rm /localdata/janel/exec_cache/*`
 
 export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead":"unlimited"}'
 REPLICAS=$1
@@ -29,6 +52,8 @@ TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 # below learning rate and gradient accumulation count are used for tuning validation
 LEARNING_RATE=$7
 GRADIENT_ACCUMULATION=$8
+NUM_DATA_WORKERS=$9
+
 CELLNAME=witness2c_fp16
 #CELLNAME=witness13c_fp16
 
@@ -45,7 +70,7 @@ TRAIN=" poprun \
 	--executable-cache-path=/localdata/$USER/exec_cache \
 	python ./train_replica.py --design common2c \
 	--cellName $CELLNAME --outPath /localdata/$USER/ga"$GRADIENT_ACCUMULATION"/r"$REPLICAS"_lr"$LEARNING_RATE"/"$TIMESTAMP" \
-	--initLR $LEARNING_RATE \
+	--initLR $LEARNING_RATE --numDataWorkers "$NUM_DATA_WORKERS" \
         --gradientAcc $GRADIENT_ACCUMULATION --epochs 10"
 
 echo $TRAIN

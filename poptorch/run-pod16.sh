@@ -5,6 +5,16 @@
 #   bash run-pod16.sh 4 0.005 5
 # Please modify the data path and your output path if you don't use /localdata.
 
+#sanity check for memory usage
+if [[ "$MEM" -lt 48000000 ]] #49529488+total
+then
+    echo "The host memory is in use; test it later"
+    exit 1
+fi
+
+# remove the executable cache
+rm /localdata/janel/exec_cache/*
+
 export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead" : "unlimited"}'
 export POPTORCH_CACHE_DIR=/localdata/$USER/exec_cache
 TEMP_DIR=/localdata/$USER/my_temp
