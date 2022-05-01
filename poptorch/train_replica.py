@@ -47,6 +47,7 @@ def get_parser():
     parser.add_argument("-j","--jobId", default=None, help="optional, aux info to be stored w/ summary")
     parser.add_argument("--gradientAcc",default=None, type=int, help="if defined, reduces gradient accumulation count")
     parser.add_argument("--numDataWorkers",default=None, type=int, help="if defined, replaces num_data_workers from hpar")
+    parser.add_argument("--rebatchSize",default=None, type=int, help="if defined, replaces rebatch_worker_size from hpar")
 
     args = parser.parse_args()
     return args
@@ -89,6 +90,8 @@ if __name__ == '__main__':
         params['max_epochs']= args.epochs
     if args.numDataWorkers!=None:
         params['num_data_workers'] = args.numDataWorkers
+    if args.rebatchSize!=None:
+        params['rebatch_size'] = args.rebatchSize
 
     # ... rank dependent config .....
     params['world_size'] = world_size

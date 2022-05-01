@@ -60,6 +60,9 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
     num_data_workers = conf['num_data_workers']
     if 'num_data_workers' in params:
         num_data_workers = params['num_data_workers']
+    rebatch_size = conf['gc_m2000']['rebatch_size']
+    if 'rebatch_size' in params:
+        rebatch_size = params['rebatch_size']
 
     #shuffle=domain=='train'  # use False only for reproducibility
     shuffle=True # both: train & val
