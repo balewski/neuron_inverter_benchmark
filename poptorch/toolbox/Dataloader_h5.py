@@ -74,7 +74,7 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
                              shuffle=shuffle,
                              persistent_workers=True,
                              mode=poptorch.DataLoaderMode.AsyncRebatched,
-                             rebatched_worker_size=conf['gc_m2000']['rebatch_size'],
+                             rebatched_worker_size=rebatch_size,
                              async_options={
                                  "early_preload": True,
                                  "buffer_size": conf['num_data_workers'],
