@@ -1,18 +1,10 @@
-ga=2
+ga=3
 lr=0.002
-for r in 4 #2 4
+reb=32
+for r in 2 4 8 16
   do
-  for i in `seq 0 2`
+  for i in `seq 0 0`
     do
-      bash ./run-pod16.sh $r 1 $lr $ga 2>&1 | tee r"$r"_v"$i".log
-    done
-  done
-
-for r in 8 16
-  do
-  instances=$((r/4))
-  for i in `seq 0 2`
-    do
-      bash ./run-pod16.sh $r $instances $lr $ga 2>&1 | tee r"$r"_v"$i".log
+      bash ./run-pod16.sh $r $r $lr $ga $reb 2>&1 | tee r"$r"_v"$i"_ga"$ga"_reb"$reb".log
     done
   done
