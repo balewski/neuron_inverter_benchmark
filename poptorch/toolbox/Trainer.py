@@ -365,16 +365,17 @@ class Trainer():
 
 #...!...!..................
   def memory_footprint(self, caption):
-    logging.info(caption)
-    n = np.zeros(shape=(64), dtype=np.float32)
-    tensor = torch.Tensor(n)
-    if self.isDist:
-      avg_value = self.hvd.allreduce(tensor, average=True)
-    returned_value = os.system("top ibn1 ; free -g")
-    time.sleep(10)
-    returned_value = os.system("top ibn1 ; free -g")
-    time.sleep(10)
-    logging.info('done with sleep...' + caption)
+    if 0:
+      logging.info(caption)
+      n = np.zeros(shape=(64), dtype=np.float32)
+      tensor = torch.Tensor(n)
+      if self.isDist:
+        avg_value = self.hvd.allreduce(tensor, average=True)
+      returned_value = os.system("top ibn1 ; free -g")
+      time.sleep(10)
+      returned_value = os.system("top ibn1 ; free -g")
+      time.sleep(10)
+      logging.info('done with sleep...' + caption)
 
 #...!...!..................
   def train_one_epoch(self,dataLoader):
