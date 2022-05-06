@@ -5,10 +5,14 @@ set -u ;  # exit  if you try to use an uninitialized variable
 #set -o errexit ;  # exit if any statement returns a non-true return value
 
 k=0
-#nodes=2 ; runTime=4:25:00
-nodes=16 ; runTime=15:00
-#nodes=32 ; runTime=10:00
 taskPerNode=4
+#nodes=1 ; runTime=4:30:00
+#nodes=1 ; runTime=1:20:00
+#nodes=2 ; runTime=50:00
+nodes=4 ; runTime=25:00
+#nodes=16 ; runTime=15:00
+#nodes=32 ; runTime=10:00
+
 #epochs=30
 cellName=practice140c  # Kewei
 #cellName=witness2c   #GC-SC22
@@ -17,9 +21,9 @@ cellName=witness13c_fp16   #GC-Jane
 design=gcref2 #GC-Jane
 G=$[ ${taskPerNode} * ${nodes} ]
 echo N=${nodes} G=$G runTime=$runTime
-#for lr in .0005 .001 .002 .005   ; do  # 8G,4G, 2G?
-##for lr in  .001 .002 .005 .01 0.02  ; do  # 16G
-for lr in   .002 .005 .01   ; do  # 32,64,128G
+#for lr in .0001 .0002 .0005 .001 .002 .005   ; do  # 1,2G
+for lr in .0005 .001 .002 .005   ; do  # 4-16G
+#for lr in  .001 .002 .005 .01 .02  ; do  # 32-128G
 #for lr in   .0005   ; do
     jobId=lr${lr}    
     echo job=$jobId
@@ -31,7 +35,7 @@ for lr in   .002 .005 .01   ; do  # 32,64,128G
     #./batchShifter.slr      # PM  - interactive
     sleep 1
     k=$[ ${k} + 1 ]
-    #exit
+    exit
 done
 date
 

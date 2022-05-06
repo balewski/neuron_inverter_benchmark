@@ -151,3 +151,4 @@ old*
 out/
 dummy*
 exec_cache/
+*png
