@@ -31,7 +31,7 @@ class Trainer():
 
     if for_training:
       popOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
-      popOpts.Training.runningStatisticsAlwaysFloat(True)
+      popOpts.Precision.runningStatisticsAlwaysFloat(True)
 
     else:
       popOpts.Training.gradientAccumulation(1)
