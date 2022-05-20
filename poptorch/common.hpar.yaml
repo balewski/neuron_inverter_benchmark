@@ -3,7 +3,7 @@ comment: LR sched and BS optimized for 1 IPU traning
 
 # choose data path depending on facility
 #data_path: /home/balewskij/neuron-data/  # GraphCore, M2000, lr66
-data_path: /localdata/janel/neuron-data/
+data_path: /localdata/datasets/neuron-data/
 
 probe_type: excite_4prB8kHz # excite2_4prB8kHz  #  BBP2
 
