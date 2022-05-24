@@ -43,6 +43,8 @@ class Trainer():
       popOpts.setExecutionStrategy(poptorch.ShardedExecution())
     popOpts.outputMode(poptorch.OutputMode.All)
     popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
+    #import popart
+    #popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
 
     if self.params['fp16_model']:
       popOpts.Precision.setPartialsType(torch.half)
