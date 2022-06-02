@@ -173,6 +173,8 @@ class MyModelWithLoss(torch.nn.Module): # GC wrapper class
                 ytrue, poptorch.OverlapMode.OverlapAccumulationLoop)
 
         ypred = self.model(x)
+        #print(ypred.shape)
+        #print(ytrue.shape)
         loss = self.loss(ypred, ytrue)
 
         if 'num_io_tiles' in self.model.params['gc_m2000'] and self.model.params['gc_m2000']['num_io_tiles'] >= 32:
@@ -182,3 +184,46 @@ class MyModelWithLoss(torch.nn.Module): # GC wrapper class
         return ypred, loss
 
     #Note, forward(.) output can be conditioned on self.training but NOT on ytrue==None (despit the latter may work in some simple cases)
+
+
+"""
+[1,0]<stdout>:J: inF torch.Size([96, 1600, 4])
+[1,0]<stdout>:J: inp2cnn torch.Size([96, 4, 1600]) torch.float32
+[1,0]<stdout>:Jcnn-lyr:  0 Conv1d(4, 30, kernel_size=(4,), stride=(1,))
+[1,0]<stdout>:Jcnn: out  0 torch.Size([96, 30, 1597])
+[1,0]<stdout>:Jcnn-lyr:  1 MaxPool1d(kernel_size=4, stride=4, padding=0, dilation=1, ceil_mode=False)
+[1,0]<stdout>:Jcnn: out  1 torch.Size([96, 30, 399])
+[1,0]<stdout>:Jcnn-lyr:  2 ReLU()
+[1,0]<stdout>:Jcnn: out  2 torch.Size([96, 30, 399])
+[1,0]<stdout>:Jcnn-lyr:  3 Conv1d(30, 90, kernel_size=(4,), stride=(1,))
+[1,0]<stdout>:Jcnn: out  3 torch.Size([96, 90, 396])
+[1,0]<stdout>:Jcnn-lyr:  4 MaxPool1d(kernel_size=4, stride=4, padding=0, dilation=1, ceil_mode=False)
+[1,0]<stdout>:Jcnn: out  4 torch.Size([96, 90, 99])
+[1,0]<stdout>:Jcnn-lyr:  5 ReLU()
+[1,0]<stdout>:Jcnn: out  5 torch.Size([96, 90, 99])
+[1,0]<stdout>:Jcnn-lyr:  6 Conv1d(90, 180, kernel_size=(4,), stride=(1,))
+[1,0]<stdout>:Jcnn: out  6 torch.Size([96, 180, 96])
+[1,0]<stdout>:Jcnn-lyr:  7 MaxPool1d(kernel_size=4, stride=4, padding=0, dilation=1, ceil_mode=False)
+[1,0]<stdout>:Jcnn: out  7 torch.Size([96, 180, 24])
+[1,0]<stdout>:Jcnn-lyr:  8 ReLU()
+[1,0]<stdout>:Jcnn: out  8 torch.Size([96, 180, 24])
+[1,0]<stdout>:Jfc:  0 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  1 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  2 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  3 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  4 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  5 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  6 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  7 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  8 torch.Size([96, 512])
+[1,0]<stdout>:Jfc:  9 torch.Size([96, 256])
+[1,0]<stdout>:Jfc:  10 torch.Size([96, 256])
+[1,0]<stdout>:Jfc:  11 torch.Size([96, 256])
+[1,0]<stdout>:Jfc:  12 torch.Size([96, 128])
+[1,0]<stdout>:Jfc:  13 torch.Size([96, 128])
+[1,0]<stdout>:Jfc:  14 torch.Size([96, 128])
+[1,0]<stdout>:Jfc:  15 torch.Size([96, 1600])
+[1,0]<stdout>:J: y torch.Size([96, 1600])
+[1,0]<stdout>:torch.Size([96, 1600])
+[1,0]<stdout>:torch.Size([96, 15])
+"""

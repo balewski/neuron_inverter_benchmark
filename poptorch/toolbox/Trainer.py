@@ -17,6 +17,7 @@ logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 from toolbox.Model import NeuInvModel , MyModelWithLoss
 from toolbox.Dataloader_h5 import get_data_loader
 from toolbox.Util_IOfunc import read_yaml
+import popart
 
 
 #............................
@@ -28,6 +29,7 @@ class Trainer():
 
     popOpts = popdist.poptorch.Options()
     popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
+    popOpts.deviceIterations(1) # Device "step"
 
     if for_training:
       popOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
@@ -42,9 +44,12 @@ class Trainer():
       popOpts.TensorLocations.numIOTiles(params['gc_m2000']['num_io_tiles'])
       popOpts.setExecutionStrategy(poptorch.ShardedExecution())
     popOpts.outputMode(poptorch.OutputMode.All)
-    popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
-    #import popart
-    #popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
+    # popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
+    popOpts._Popart.set("rearrangeAnchorsOnHost", False)
+    popOpts._Popart.set("replicatedCollectivesSettings.prepareScheduleForMergingCollectives", True)
+    popOpts._Popart.set("replicatedCollectivesSettings.mergeAllReduceCollectives", True)
+    popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
+    popOpts._Popart.set("groupHostSync", True)
 
     if self.params['fp16_model']:
       popOpts.Precision.setPartialsType(torch.half)
@@ -113,8 +118,17 @@ class Trainer():
     self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
     self.memory_footprint('train data loaded. sleep 10 seconds... ')
 
+    # for ist, (data, target) in enumerate(self.train_loader):
+    #   torch.save(data, "re_worked_data/data" + str(ist))
+    #   torch.save(target, "re_worked_data/target" + str(ist))
+
     if self.valPeriod[1]>0:
-        self.pseudo_valid_loader = get_data_loader(params,  inpMD,'val', trainingPopOpts, verb=self.verb)
+        self.pseudo_valid_loader = get_data_loader(params,  inpMD, 'val', trainingPopOpts, verb=self.verb)
+
+        # for ist, (data, target) in enumerate(self.pseudo_valid_loader):
+        #   torch.save(data, "re_worked_data/psedo_valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/psedo_valid_loader/target" + str(ist))
+
         self.memory_footprint('first val data loaded. sleep 10 seconds... ')
 
         if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
@@ -122,6 +136,11 @@ class Trainer():
         self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
         self.memory_footprint('second val data loaded. sleep 10 seconds... ')
 
+        # for ist, (data, target) in enumerate(self.valid_loader):
+        #   torch.save(data, "re_worked_data/valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/valid_loader/target" + str(ist))
+
+        # exit()
         if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
 
     if self.verb:
@@ -206,8 +225,6 @@ class Trainer():
 
     if 'decay_epochs' in lrcf:
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, lrcf['decay_epochs'], gamma=lrcf['gamma'], verbose=self.verb)
-
-
 
     self.iters = 0
     self.startEpoch = 0
@@ -383,6 +400,12 @@ class Trainer():
 
 #...!...!..................
   def train_one_epoch(self,dataLoader):
+    # for ist, (data, target) in enumerate(dataLoader):
+    #     torch.save(data, "re_worked_data/data" + str(ist))
+    #     torch.save(target, "re_worked_data/target" + str(ist))
+
+    # print("Saving done!")
+    # exit(0)
 
     report_time = time.time()
     report_bs = 0
@@ -390,7 +413,23 @@ class Trainer():
     self.model4train.train()
     # Graphcore speciffic
     loss=0
+    # data, target = next(iter(dataLoader))[0], next(iter(dataLoader))[1]
+    # target = next(iter(dataLoader))[1]
+
+    # data_size, target_size = next(iter(dataLoader))[0].shape, next(iter(dataLoader))[1].shape
+    # print(data_size, target_size)
+    # print(hdeueh)
+    # data, target = torch.rand(data_size).contiguous(), torch.rand(target_size).contiguous()
+    # for ist in range(len(dataLoader)):
     for ist, (data, target) in enumerate(dataLoader):
+        data, target = data.squeeze(), target.squeeze()
+
+        # print(data.shape, target.shape)
+        # print(jdieji)
+        """
+          torch.Size([4608, 1600, 4])
+          [1,0]<stdout>:torch.Size([4608, 15])
+        """
         if not self.compiled:
           self.model4train.compile(data, target)
           self.compiled = True
@@ -420,6 +459,7 @@ class Trainer():
     self.model4infer.eval()
     loss=0
     for i, (data, target) in enumerate(self.valid_loader):
+        data, target = data.squeeze(), target.squeeze()
         _, loss_op = self.model4infer(data, target)
         loss += loss_op.numpy()
 
