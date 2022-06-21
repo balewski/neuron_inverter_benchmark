@@ -66,8 +66,8 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
 
     params[domain+'_steps_per_epoch']=dataset.sanity()
 
-    params['model']['inputShape']=list(dataset.data_frames[0].shape[0:])
-    params['model']['outputSize']=dataset.data_parU[0].shape[0]
+    params['model']['inputShape']=list(dataset.data_frames[0].shape[0:]) # [1600, 4]
+    params['model']['outputSize']=dataset.data_parU[0].shape[0] # 15
 
     num_data_workers = conf['num_data_workers']
     if 'num_data_workers' in params:

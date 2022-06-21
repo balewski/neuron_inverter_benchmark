@@ -48,7 +48,7 @@ def get_parser():
     parser.add_argument("--gradientAcc",default=None, type=int, help="if defined, reduces gradient accumulation count")
     parser.add_argument("--numDataWorkers",default=None, type=int, help="if defined, replaces num_data_workers from hpar")
     parser.add_argument("--rebatchSize",default=None, type=int, help="if defined, replaces rebatch_worker_size from hpar")
-    parser.add_argument("--numIOTiles",default=None, type=int, help="if defined, replaces num_io_tiles from hpar")
+    parser.add_argument("--deviceIter",default=None, type=int, help="if defined, replaces freplica_steps_per_iter from hpar")
 
     args = parser.parse_args()
     return args
@@ -93,8 +93,8 @@ if __name__ == '__main__':
         params['num_data_workers'] = args.numDataWorkers
     if args.rebatchSize!=None:
         params['rebatch_size'] = args.rebatchSize
-    if args.numIOTiles!=None:
-        params['gc_m2000']['num_io_tiles'] = args.numIOTiles
+    if args.deviceIter!=None:
+        params['gc_m2000']['replica_steps_per_iter'] = args.deviceIter
 
     # ... rank dependent config .....
     params['world_size'] = world_size
