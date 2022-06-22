@@ -49,6 +49,7 @@ class Trainer():
     popOpts._Popart.set("replicatedCollectivesSettings.mergeAllReduceCollectives", True)
     popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
     popOpts._Popart.set("groupHostSync", True)
+    popOpts.Precision.enableStochasticRounding(True)
 
     if self.params['fp16_model']:
       popOpts.Precision.setPartialsType(torch.half)
@@ -73,6 +74,7 @@ class Trainer():
     self.valPeriod=params['validation_period']
     self.isDist=params['world_size']>1
     self.compiled = False
+    self.compileOnly = params['compile_only']==1
 
     self.device = popdist.popdist_core.getDeviceId()
     logging.info('T:ini world rank %d of %d, host=%s  see device=%s'%(params['world_rank'],params['world_size'],socket.gethostname(),str(self.device)))
@@ -218,7 +220,14 @@ class Trainer():
     target = torch.empty([data_size, 15]).half()
     params['model']['inputShape']=(1600, 4) #data.shape[0:]
     params['model']['outputSize']=15 #target.shape[0]
-    self.model4train.compile(data, target)
+    if self.compileOnly:
+        if self.isRank0:
+            self.model4train.compile(data, target)
+        n = np.zeros(shape=(64), dtype=np.float32)
+        tensor = torch.Tensor(n)
+        if self.isDist:
+            avg_value = self.hvd.allreduce(tensor, average=True)
+        import sys; sys.exit(0)
 
     self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
     self.memory_footprint('train data loaded. sleep 10 seconds... ')
@@ -249,7 +258,7 @@ class Trainer():
         if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
 
     if self.verb:
-      logging.info('rank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
+      logging.info('oank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
       logging.info('train-data: %d steps, localBS*replicaStep=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,self.params['global_batch_size']))
     # must know the number of steps to decided how often to print
     self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])

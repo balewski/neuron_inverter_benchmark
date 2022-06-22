@@ -49,6 +49,7 @@ def get_parser():
     parser.add_argument("--numDataWorkers",default=None, type=int, help="if defined, replaces num_data_workers from hpar")
     parser.add_argument("--rebatchSize",default=None, type=int, help="if defined, replaces rebatch_worker_size from hpar")
     parser.add_argument("--deviceIter",default=None, type=int, help="if defined, replaces freplica_steps_per_iter from hpar")
+    parser.add_argument("--compileOnly",default=0, type=int, help="if defined, replaces compile_only from hpar")
 
     args = parser.parse_args()
     return args
@@ -95,6 +96,8 @@ if __name__ == '__main__':
         params['rebatch_size'] = args.rebatchSize
     if args.deviceIter!=None:
         params['gc_m2000']['replica_steps_per_iter'] = args.deviceIter
+    if args.compileOnly!=None:
+        params['compile_only'] = args.compileOnly
 
     # ... rank dependent config .....
     params['world_size'] = world_size
