@@ -220,9 +220,14 @@ class Trainer():
     target = torch.empty([data_size, 15]).half()
     params['model']['inputShape']=(1600, 4) #data.shape[0:]
     params['model']['outputSize']=15 #target.shape[0]
+    val_data_size = params['local_batch_size'] * params['gc_m2000']['replica_steps_per_iter']
+    val_data = torch.rand(val_data_size, 1600, 4).half()
+    val_target = torch.empty([val_data_size, 15]).half()
     if self.compileOnly:
         if self.isRank0:
             self.model4train.compile(data, target)
+            self.model4train.detachFromDevice()
+            self.model4infer.compile(val_data, val_target)
         n = np.zeros(shape=(64), dtype=np.float32)
         tensor = torch.Tensor(n)
         if self.isDist:
