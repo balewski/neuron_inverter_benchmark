@@ -51,7 +51,7 @@ class NeuInvModel(nn.Module):
     def add_CNN_block(self, hpar):
         timeBins,inp_chan=hpar['inputShape']
         self.inp_shape=(inp_chan,timeBins) # swap order
-        if self.verb>1 : print('start CNN-block Model inp_shape=',self.inp_shape,', verb=%d'%(self.verb))
+        #if self.verb>1 : print('start CNN-block Model inp_shape=',self.inp_shape,', verb=%d'%(self.verb))
         
         # .....  CNN layers
         hpar1=hpar['conv_block']
@@ -73,7 +73,7 @@ class NeuInvModel(nn.Module):
             x1=torch.tensor(np.zeros((2,)+self.inp_shape), dtype=torch.float32)
             y1=self.forwardCnnOnly(x1)
             self.flat_dim=np.prod(y1.shape[1:]) 
-            if self.verb>1: print('myNet cnn flat_dim=',self.flat_dim)
+            #if self.verb>1: print('myNet cnn flat_dim=',self.flat_dim)
 
 
 #...!...!..................
@@ -81,7 +81,7 @@ class NeuInvModel(nn.Module):
         timeBins,inp_chan=hpar['inputShape']
         self.inp_shape=(timeBins,inp_chan) # not swap order
         
-        if self.verb>1: print('start LSTM-block Model inp_shape=',self.inp_shape,', verb=%d'%(self.verb))
+        #if self.verb>1: print('start LSTM-block Model inp_shape=',self.inp_shape,', verb=%d'%(self.verb))
 
         # .....  LSTM layers
         hpar1=hpar['lstm_block']
@@ -99,39 +99,39 @@ class NeuInvModel(nn.Module):
             
 
         self.flat_dim=self.hidden_lstm_size
-        if self.verb>1: print('myNet lstm flat_dim=',self.flat_dim)
+        #if self.verb>1: print('myNet lstm flat_dim=',self.flat_dim)
         
 #...!...!..................
     def forwardCnnOnly(self, x):
         # flatten 2D image 
         x=x.view((-1,)+self.inp_shape )
 
-        if self.verb>2: print('J: inp2cnn',x.shape,x.dtype)
+        #if self.verb>2: print('J: inp2cnn',x.shape,x.dtype)
         for i,lyr in enumerate(self.cnn_block):
-            if self.verb>2: print('Jcnn-lyr: ',i,lyr)
+            #if self.verb>2: print('Jcnn-lyr: ',i,lyr)
             x=lyr(x)
-            if self.verb>2: print('Jcnn: out ',i,x.shape)
+            #if self.verb>2: print('Jcnn: out ',i,x.shape)
         return x
         
 #...!...!..................
     def forwardLstmOnly(self, x):
 
         #x=shape (BS,seq_len,inp_chan)
-        if self.verb>2: print('Jlstm: in',x.shape)
+        #if self.verb>2: print('Jlstm: in',x.shape)
         bs=x.size(0)
         h_0 = Variable(torch.zeros(self.num_lstm_layers, bs, self.hidden_lstm_size)) #hidden state
         c_0 = Variable(torch.zeros(self.num_lstm_layers, bs, self.hidden_lstm_size)) #internal state
         # Propagate input through LSTM
         output, (hn, cn) = self.lstm(x, (h_0, c_0)) #lstm with input, hidden, and internal state
         hn = hn.view(-1, self.hidden_lstm_size) #reshaping the data for Dense layer next
-        if self.verb>2: print('Jlstm: hn',hn.shape,h_0.shape)
+        #if self.verb>2: print('Jlstm: hn',hn.shape,h_0.shape)
         return hn
     
   
         
 #...!...!..................
     def forward(self, x, target=None):
-        if self.verb>2: print('J: inF',x.shape)
+        #if self.verb>2: print('J: inF',x.shape)
 
         if self.hasCNN:
             x=self.forwardCnnOnly(x)
@@ -144,8 +144,8 @@ class NeuInvModel(nn.Module):
             
         for i,lyr in enumerate(self.fc_block):
             x=lyr(x)
-            if self.verb>2: print('Jfc: ',i,x.shape)
-        if self.verb>2: print('J: y',x.shape)
+            #if self.verb>2: print('Jfc: ',i,x.shape)
+        #if self.verb>2: print('J: y',x.shape)
         return x
 
 #...!...!..................
@@ -175,6 +175,7 @@ class MyModelWithLoss(torch.nn.Module): # GC wrapper class
         ypred = self.model(x)
         #print(ypred.shape)
         #print(ytrue.shape)
+        # print(hdueh)
         loss = self.loss(ypred, ytrue)
 
         if 'num_io_tiles' in self.model.params['gc_m2000'] and self.model.params['gc_m2000']['num_io_tiles'] >= 32:

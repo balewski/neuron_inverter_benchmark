@@ -53,6 +53,7 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
 
     conf['doAux']=False  #legacy switch never used
     #pprint(conf)
+    # dataset = Dataset_saved_h5_neuronInverter(domain)
     dataset = Dataset_h5_neuronInverter(conf, verb)
     if 'max_samples_per_epoch' in params:
         max_samp= params['max_samples_per_epoch']
@@ -66,8 +67,8 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
 
     params[domain+'_steps_per_epoch']=dataset.sanity()
 
-    params['model']['inputShape']=list(dataset.data_frames[0].shape[0:]) # [1600, 4]
-    params['model']['outputSize']=dataset.data_parU[0].shape[0] # 15
+    params['model']['inputShape']=list(dataset.data_frames[0].shape[0:])
+    params['model']['outputSize']=dataset.data_parU[0].shape[0]
 
     num_data_workers = conf['num_data_workers']
     if 'num_data_workers' in params:
@@ -79,37 +80,20 @@ def get_data_loader(params,  inpMD,domain,popopts, verb=1):
     #shuffle=domain=='train'  # use False only for reproducibility
     shuffle=True # both: train & val
 
-    # dataset = SyntheticDataset()
-
-    # popOpts_ = popdist.poptorch.Options()
-    # popOpts_.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
-
-    # Graphcore speciffic
-    if 0: # Async data loader for witness2c_fp16b
-      dataloader = poptorch.DataLoader(popOpts_,dataset,
-                              batch_size=1,
-                              num_workers=num_data_workers,
-                              shuffle=shuffle,
-                              persistent_workers=True,
-                              mode=poptorch.DataLoaderMode.Async,
-                              #mode=poptorch.DataLoaderMode.AsyncRebatched,
-                              #rebatched_worker_size=rebatch_size,
-                              async_options={
-                                   "early_preload": True,
-                                   "buffer_size": conf['num_data_workers'],
-                                   "load_indefinitely": True,
-                                   "miss_sleep_time_in_ms": 0
-                              },
-                              auto_distributed_partitioning=True, #to serve all data
-                                      )
-
+    async_options = {
+        "sharing_strategy": poptorch.SharingStrategy.SharedMemory,
+        "early_preload": True,
+        "buffer_size": num_data_workers,
+        "load_indefinitely": True,
+        "miss_sleep_time_in_ms": 0
+    }
     dataloader = poptorch.DataLoader(popopts,dataset,
                              batch_size=conf['local_batch_size'],
                              num_workers=num_data_workers,
                              shuffle=shuffle,
-                             mode=poptorch.DataLoaderMode.Sync,
-                             auto_distributed_partitioning=False, #to serve all data
-                                     )
+                             mode=poptorch.DataLoaderMode.Async,
+                             async_options=async_options,
+                             auto_distributed_partitioning=False)
 
     dataloader.conf = conf
     dataset.conf = conf

@@ -49,7 +49,6 @@ class Trainer():
     popOpts._Popart.set("replicatedCollectivesSettings.mergeAllReduceCollectives", True)
     popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
     popOpts._Popart.set("groupHostSync", True)
-    popOpts.Precision.enableStochasticRounding(True)
 
     if self.params['fp16_model']:
       popOpts.Precision.setPartialsType(torch.half)
@@ -74,9 +73,8 @@ class Trainer():
     self.valPeriod=params['validation_period']
     self.isDist=params['world_size']>1
     self.compiled = False
-    self.compileOnly = params['compile_only']==1
 
-    self.device = popdist.popdist_core.getDeviceId()
+    self.device = popdist.getDeviceId()
     logging.info('T:ini world rank %d of %d, host=%s  see device=%s'%(params['world_rank'],params['world_size'],socket.gethostname(),str(self.device)))
 
     expDir=params['out_path']
@@ -116,6 +114,38 @@ class Trainer():
     trainingPopOpts = self._get_poptorch_options(params, for_training=True)
     inferencePopOpts = self._get_poptorch_options(params, for_training=False)
 
+    self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
+    self.memory_footprint('train data loaded. sleep 10 seconds... ')
+
+    # for ist, (data, target) in enumerate(self.train_loader):
+    #   torch.save(data, "re_worked_data/data" + str(ist))
+    #   torch.save(target, "re_worked_data/target" + str(ist))
+
+    if self.valPeriod[1]>0:
+        self.pseudo_valid_loader = get_data_loader(params,  inpMD, 'val', trainingPopOpts, verb=self.verb)
+
+        # for ist, (data, target) in enumerate(self.pseudo_valid_loader):
+        #   torch.save(data, "re_worked_data/psedo_valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/psedo_valid_loader/target" + str(ist))
+
+        self.memory_footprint('first val data loaded. sleep 10 seconds... ')
+
+        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
+
+        self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
+        self.memory_footprint('second val data loaded. sleep 10 seconds... ')
+
+        # for ist, (data, target) in enumerate(self.valid_loader):
+        #   torch.save(data, "re_worked_data/valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/valid_loader/target" + str(ist))
+
+        # exit()
+        if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
+
+    if self.verb:
+      logging.info('rank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
+      logging.info('train-data: %d steps, localBS*replicaStep=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,self.params['global_batch_size']))
+
 
     if 0:
         print('\ntrain data example')
@@ -129,8 +159,10 @@ class Trainer():
         ok77
 
 
-    params['model']['inputShape']=(1600, 4) #data.shape[0:]
-    params['model']['outputSize']=15 #target.shape[0]
+    # must know the number of steps to decided how often to print
+    self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
+
+
     myModel=NeuInvModel(params, verb=self.verb)
 
     if self.params['fp16_model']:
@@ -215,60 +247,6 @@ class Trainer():
                    'job_id': params['job_id'],
       }
 
-    data_size = params['local_batch_size'] * params['gc_m2000']['replica_steps_per_iter'] * params['gc_m2000']['gradientAccumulation']
-    data = torch.rand(data_size, 1600, 4).half()
-    target = torch.empty([data_size, 15]).half()
-    params['model']['inputShape']=(1600, 4) #data.shape[0:]
-    params['model']['outputSize']=15 #target.shape[0]
-    val_data_size = params['local_batch_size'] * params['gc_m2000']['replica_steps_per_iter']
-    val_data = torch.rand(val_data_size, 1600, 4).half()
-    val_target = torch.empty([val_data_size, 15]).half()
-    if self.compileOnly:
-        if self.isRank0:
-            self.model4train.compile(data, target)
-            self.model4train.detachFromDevice()
-            self.model4infer.compile(val_data, val_target)
-        n = np.zeros(shape=(64), dtype=np.float32)
-        tensor = torch.Tensor(n)
-        if self.isDist:
-            avg_value = self.hvd.allreduce(tensor, average=True)
-        import sys; sys.exit(0)
-
-    self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
-    self.memory_footprint('train data loaded. sleep 10 seconds... ')
-
-    # for ist, (data, target) in enumerate(self.train_loader):
-    #   torch.save(data, "re_worked_data/data" + str(ist))
-    #   torch.save(target, "re_worked_data/target" + str(ist))
-
-    if self.valPeriod[1]>0:
-        self.pseudo_valid_loader = get_data_loader(params,  inpMD, 'val', trainingPopOpts, verb=self.verb)
-
-        # for ist, (data, target) in enumerate(self.pseudo_valid_loader):
-        #   torch.save(data, "re_worked_data/psedo_valid_loader/data" + str(ist))
-        #   torch.save(target, "re_worked_data/psedo_valid_loader/target" + str(ist))
-
-        self.memory_footprint('first val data loaded. sleep 10 seconds... ')
-
-        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
-
-        self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
-        self.memory_footprint('second val data loaded. sleep 10 seconds... ')
-
-        # for ist, (data, target) in enumerate(self.valid_loader):
-        #   torch.save(data, "re_worked_data/valid_loader/data" + str(ist))
-        #   torch.save(target, "re_worked_data/valid_loader/target" + str(ist))
-
-        # exit()
-        if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
-
-    if self.verb:
-      logging.info('oank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
-      logging.info('train-data: %d steps, localBS*replicaStep=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,self.params['global_batch_size']))
-    # must know the number of steps to decided how often to print
-    self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
-
-
 
 #...!...!..................
   def train_replica(self):
@@ -306,7 +284,6 @@ class Trainer():
       if self.epoch == self.params['max_epochs']-1:
           self.memory_footprint("..first or last epoch, sleep 10 sec..")
 
-      #self.doVal = False
       if self.doVal :
           if self.params['gc_m2000']['pseudoValidation']:
               # use Alex trick: no graph swapping but switch to pseudo-training using optimizer w/ LR=0
@@ -446,15 +423,16 @@ class Trainer():
     for ist, (data, target) in enumerate(dataLoader):
         data, target = data.squeeze(), target.squeeze()
 
+        # print(data.shape, target.shape)
         # print(jdieji)
         """
-          torch.Size([3840, 1600, 4])
-          [1,0]<stdout>:torch.Size([3840, 15])
+          torch.Size([4608, 1600, 4])
+          [1,0]<stdout>:torch.Size([4608, 15])
         """
-        #if not self.compiled:
-        #  self.model4train.compile(data, target)
-        #  self.compiled = True
-        #  self.memory_footprint('after the compilation')
+        if not self.compiled:
+          self.model4train.compile(data, target)
+          self.compiled = True
+          self.memory_footprint('after the compilation')
 
         _, loss_op = self.model4train(data, target)
         loss += loss_op.numpy()
