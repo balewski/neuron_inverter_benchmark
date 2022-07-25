@@ -16,7 +16,7 @@ const_local_batch: True # True: faster, LR changes w/ num IPUs
 #max_samples_per_epoch: 8000  # uncoment to skip data
 
 gc_m2000:
-    replica_steps_per_iter: 2
+    replica_steps_per_iter: 1
     graph_caching: True
     pseudoValidation: True
     stagger_delay_sec:  0
