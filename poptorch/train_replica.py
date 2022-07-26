@@ -48,8 +48,6 @@ def get_parser():
     parser.add_argument("--gradientAcc",default=None, type=int, help="if defined, reduces gradient accumulation count")
     parser.add_argument("--numDataWorkers",default=None, type=int, help="if defined, replaces num_data_workers from hpar")
     parser.add_argument("--rebatchSize",default=None, type=int, help="if defined, replaces rebatch_worker_size from hpar")
-    parser.add_argument("--deviceIter",default=None, type=int, help="if defined, replaces freplica_steps_per_iter from hpar")
-    parser.add_argument("--compileOnly",default=0, type=int, help="if defined, replaces compile_only from hpar")
 
     args = parser.parse_args()
     return args
@@ -64,7 +62,7 @@ if __name__ == '__main__':
 
     #..... GC enviroment survey
     host=socket.gethostname()
-    device_id = popdist.popdist_core.getDeviceId()
+    device_id = popdist.getDeviceId()
     locReplicas = int(popdist.getNumLocalReplicas())
     total_replicas= int(popdist.getNumTotalReplicas())
     rank = popdist.getInstanceIndex() # index of the current instance
@@ -94,10 +92,6 @@ if __name__ == '__main__':
         params['num_data_workers'] = args.numDataWorkers
     if args.rebatchSize!=None:
         params['rebatch_size'] = args.rebatchSize
-    if args.deviceIter!=None:
-        params['gc_m2000']['replica_steps_per_iter'] = args.deviceIter
-    if args.compileOnly!=None:
-        params['compile_only'] = args.compileOnly
 
     # ... rank dependent config .....
     params['world_size'] = world_size
@@ -110,6 +104,7 @@ if __name__ == '__main__':
 
     # refine BS for multi-gpu configuration
     tmp_batch_size=params.pop('batch_size')
+    # tmp_batch_size = 20
     if params['const_local_batch']: # faster but LR changes w/ num GPUs
         params['local_batch_size'] =tmp_batch_size
         params['global_batch_size'] =tmp_batch_size*params['total_replicas']*params['gc_m2000']['gradientAccumulation']
