@@ -26,9 +26,10 @@ COMP=0
 NUM_REPLICAS=$1
 LR=$2
 GA=$3
+VER=$4
 INSTANCES=$NUM_REPLICAS
-#bash test-gc-monitor.sh lr17-1-ctrl p${SLURM_JOB_ID} >& log.energy_"$NUM_REPLICAS".csv & eneId=$!
-#sleep 360
+bash test-gc-monitor.sh lr17-1-ctrl p${SLURM_JOB_ID} >& log.energy_"$NUM_REPLICAS"_"$VER".csv & eneId=$!
+sleep 360
 bash run-slurm.sh $NUM_REPLICAS $INSTANCES $PARTITION $SERVER $NETMASK $LR $NW $GA $COMP
-#sleep 360
-#kill $eneId
+sleep 360
+kill $eneId
