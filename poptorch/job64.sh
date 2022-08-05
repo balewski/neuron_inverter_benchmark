@@ -1,0 +1,9 @@
+#sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.0002 15 -t 9:0:0
+#sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.0005 15 -t 9:0:0
+sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.01 15  -t 9:0:0
+#sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.001 15 -t 9:0:0
+sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.002 15  -t 9:0:0
+sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.002 15  -t 9:0:0
+sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.005 15 -t 9:0:0
+sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.005 15 -t 9:0:0
+#sbatch -N 4 -p pod64 --ntasks-per-node=16 --exclusive ./test-slurm.sh $1 0.01 15 -t 9:0:0

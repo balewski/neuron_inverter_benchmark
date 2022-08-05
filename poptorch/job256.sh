@@ -1,0 +1,9 @@
+#sbatch -N 4 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.0002  -t 9:0:0
+#sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.0005  -t 9:0:0
+#sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.001  -t 9:0:0
+sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.002 15  -t 9:0:0
+sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.002 15  -t 9:0:0
+sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.002 15  -t 9:0:0
+sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.005 15  -t 9:0:0
+sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.005 15  -t 9:0:0
+#sbatch -N 16 -p pod256 --ntasks-per-node=16 --exclusive ./test-slurm.sh 256 0.02  -t 9:0:0
