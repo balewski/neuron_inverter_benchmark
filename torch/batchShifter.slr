@@ -68,7 +68,7 @@ fi
 
 
 #wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/marchKewei
-wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/april_GCpaper
+wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/benchmark/july_GCpaper
 #wrkDir0=$SCRATCH/tmp_digitalMind/neuInv/test
 wrkDir=$wrkDir0/$wrkSufix
 
