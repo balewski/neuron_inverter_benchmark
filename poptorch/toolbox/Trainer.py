@@ -16,7 +16,8 @@ logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 
 from toolbox.Model import NeuInvModel , MyModelWithLoss
 from toolbox.Dataloader_h5 import get_data_loader
-from toolbox.Util_IOfunc import read_yaml, save_checkpoint
+from toolbox.Util_IOfunc import read_yaml
+import popart
 
 
 #............................
@@ -24,20 +25,61 @@ from toolbox.Util_IOfunc import read_yaml, save_checkpoint
 #............................
 class Trainer():
 #...!...!..................
+  def _get_poptorch_options(self, params, for_training):
+
+    popOpts = popdist.poptorch.Options()
+    popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
+
+    if for_training:
+      popOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
+      popOpts.Precision.runningStatisticsAlwaysFloat(True)
+
+    else:
+      popOpts.Training.gradientAccumulation(1)
+
+
+    if 'num_io_tiles' in params['gc_m2000'] and params['gc_m2000']['num_io_tiles'] >= 32:
+      print("using io tiles")
+      popOpts.TensorLocations.numIOTiles(params['gc_m2000']['num_io_tiles'])
+      popOpts.setExecutionStrategy(poptorch.ShardedExecution())
+    popOpts.outputMode(poptorch.OutputMode.All)
+    # popOpts.Training.accumulationAndReplicationReductionType(poptorch.ReductionType.Mean)
+    popOpts._Popart.set("rearrangeAnchorsOnHost", False)
+    popOpts._Popart.set("replicatedCollectivesSettings.prepareScheduleForMergingCollectives", True)
+    popOpts._Popart.set("replicatedCollectivesSettings.mergeAllReduceCollectives", True)
+    popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
+    popOpts._Popart.set("groupHostSync", True)
+    #popOpts.Precision.enableStochasticRounding(True)
+
+    if self.params['fp16_model']:
+      popOpts.Precision.setPartialsType(torch.half)
+    if params['gc_m2000']['enableSyntheticData']:
+      popOpts.enableSyntheticData(True)
+
+    if 'prefetch_depth' in self.params['gc_m2000']:
+      popOpts._Popart.set("defaultPrefetchBufferingDepth", self.params['gc_m2000']['prefetch_depth'])
+
+    if self.isDist:
+      popOpts.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
+
+    return popOpts
+
+
   def __init__(self, params):
 
     self.params = params
     self.verb=params['verb']
-    
+
     self.isRank0=params['world_rank']==0
     self.valPeriod=params['validation_period']
     self.isDist=params['world_size']>1
-    
-    self.device = popdist.popdist_core.getDeviceId()
+    self.compiled = False
+
+    self.device = popdist.getDeviceId()
     logging.info('T:ini world rank %d of %d, host=%s  see device=%s'%(params['world_rank'],params['world_size'],socket.gethostname(),str(self.device)))
 
     expDir=params['out_path']
-    if self.isRank0:  
+    if self.isRank0:
         self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb_logs'))
         expDir2=os.path.join(expDir, 'checkpoints')
         if not os.path.isdir(expDir2):  os.makedirs(expDir2)
@@ -46,11 +88,11 @@ class Trainer():
     params['checkpoint_name'] =  'ckpt.pth'
     params['resuming'] =  params['resume_checkpoint'] and os.path.isfile(params['checkpoint_path'])
 
-    
+
     if self.verb:
         logging.info('T:params %s'%pformat(params))
 
-    # ...... END OF CONFIGURATION .........    
+    # ...... END OF CONFIGURATION .........
     if self.verb:
       logging.info('imported PyTorch:%s  PopTorch:%s'%(torch.__version__,poptorch.__version__))
       logging.info('rank %d, begin data loader init'%params['world_rank'])
@@ -60,33 +102,18 @@ class Trainer():
     inpMD=bulk['dataInfo']
     self.inpMD=inpMD
 
-    popOpts = popdist.poptorch.Options()
-    popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
-    if params['gc_m2000']['graph_caching']:
-      cachePath='./exec_cache'
-      popOpts.enableExecutableCaching(cachePath)
-      if  self.verb: logging.info('caching to %s'%(cachePath))
-      
     if self.isDist:
       import horovod.torch as hvd
       hvd.init()
       self.hvd=hvd
       if self.verb: logging.info('T:horovod started, num ranks=%d, stagger_delay %d sec/rank'%(hvd.size(),params['gc_m2000']['stagger_delay_sec']))
-      popOpts.randomSeed(42+ params['world_rank']) # force the different Droput sequence on each IPU
 
       # it may be an overkill, but w-load of 500 can't be healthy, mostlikely it is due to IO from up to 16 HD5 from data loaders and/or  rading cached graphs
       delayMe=params['gc_m2000']['stagger_delay_sec']* params['world_rank']
       time.sleep(delayMe)
-      
-    self.train_loader = get_data_loader(params, inpMD,'train', popOpts,verb=self.verb)
-    if self.valPeriod[1]>0:
-        self.valid_loader = get_data_loader(params,  inpMD,'val', popOpts, verb=self.verb)
-        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
-        if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))    
 
-    if self.verb:
-      logging.info('rank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
-      logging.info('train-data: %d steps, localBS*replicaStep=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,self.params['global_batch_size']))
+    trainingPopOpts = self._get_poptorch_options(params, for_training=True)
+    inferencePopOpts = self._get_poptorch_options(params, for_training=False)
 
 
     if 0:
@@ -99,34 +126,36 @@ class Trainer():
         print('train batch, X,Y;',xx.shape,xx.dtype,yy.shape,yy.dtype)
         print('Y[:2]',yy[:2])
         ok77
-    
-
-    # must know the number of steps to decided how often to print
-    self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
 
 
-    myModel=NeuInvModel(params['model'], verb=self.verb)
+    params['model']['inputShape']=(1600, 4) #data.shape[0:]
+    params['model']['outputSize']=15 #target.shape[0]
+    myModel=NeuInvModel(params, verb=self.verb)
+
+    if self.params['fp16_model']:
+      myModel = myModel.half()
+
     if self.isRank0: # save entirel model before training
         modelF ='blank_model.pth'
         params["blank_model"]=modelF
         torch.save( myModel, params['out_path']+'/'+modelF)
         logging.info('T: saved blank model to%s'%modelF)
-      
+
     modelWloss=MyModelWithLoss(myModel)
     if self.isDist:
       hvd.broadcast_parameters(modelWloss.state_dict(), root_rank=0)
-    
+
     if self.verb>1:
       print('\n\nT: torchsummary.summary(myModel):');
       print(myModel)
       #from torchsummary import summary
       #from torchinfo import summary
       #summary(myModel,(1,4,1600))#, batch_size=1, device='cuda')
-      
-      
+
+
     tcf=params['train_conf']
     lrcf=tcf['LRsched']
-      
+
     if self.verb: logging.info('optimizer:%s'%str(tcf['optimizer']))
     optName, initLR=tcf['optimizer']
     if optName=='AdamW':
@@ -145,16 +174,16 @@ class Trainer():
       for x in avrAttrL:
         logging.info('optimizer attr:%s isConst:%r'%(x,self.optimizer.variable_attrs.isConstant("x")))
 
-      
+
     if self.verb: logging.info("Poptorch create model start ...")
-    self.model4train = poptorch.trainingModel(modelWloss, options=popOpts, optimizer=self.optimizer)
+    self.model4train = poptorch.trainingModel(modelWloss, options=trainingPopOpts, optimizer=self.optimizer)
     if  self.valPeriod[1]>0:
-        self.model4infer = poptorch.inferenceModel(modelWloss, options=popOpts)
+        self.model4infer = poptorch.inferenceModel(modelWloss, options=inferencePopOpts)
         if self.verb: logging.info("Poptorch create inference model done")
 
     # choose type of LR decay schedule
     if self.verb: logging.info('LR conf:%s'%str(lrcf))
-    self.doRedLRplat=False    
+    self.doRedLRplat=False
     if 'plateau_patience' in lrcf:
         assert self.valPeriod[1]>0 # needs validation loss
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=lrcf['reduceFactor'], patience=lrcf['plateau_patience'], mode='min',cooldown=2, verbose=self.verb)
@@ -162,8 +191,6 @@ class Trainer():
 
     if 'decay_epochs' in lrcf:
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, lrcf['decay_epochs'], gamma=lrcf['gamma'], verbose=self.verb)
-        
-      
 
     self.iters = 0
     self.startEpoch = 0
@@ -187,7 +214,49 @@ class Trainer():
                    'job_id': params['job_id'],
       }
 
-      
+    data_size = params['local_batch_size'] * params['gc_m2000']['replica_steps_per_iter'] * params['gc_m2000']['gradientAccumulation']
+    data = torch.rand(data_size, 1600, 4).half()
+    target = torch.empty([data_size, 15]).half()
+    params['model']['inputShape']=(1600, 4) #data.shape[0:]
+    params['model']['outputSize']=15 #target.shape[0]
+    self.model4train.compile(data, target)
+
+    self.train_loader = get_data_loader(params, inpMD,'train', trainingPopOpts,verb=self.verb)
+    self.memory_footprint('train data loaded. sleep 10 seconds... ')
+
+    # for ist, (data, target) in enumerate(self.train_loader):
+    #   torch.save(data, "re_worked_data/data" + str(ist))
+    #   torch.save(target, "re_worked_data/target" + str(ist))
+
+    if self.valPeriod[1]>0:
+        self.pseudo_valid_loader = get_data_loader(params,  inpMD, 'val', trainingPopOpts, verb=self.verb)
+
+        # for ist, (data, target) in enumerate(self.pseudo_valid_loader):
+        #   torch.save(data, "re_worked_data/psedo_valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/psedo_valid_loader/target" + str(ist))
+
+        self.memory_footprint('first val data loaded. sleep 10 seconds... ')
+
+        if self.params['gc_m2000']['pseudoValidation']: next(iter(self.pseudo_valid_loader)) # HACK, otherwise  training loop will stuck on 1st val-pass
+
+        self.valid_loader = get_data_loader(params,  inpMD,'val', inferencePopOpts, verb=self.verb)
+        self.memory_footprint('second val data loaded. sleep 10 seconds... ')
+
+        # for ist, (data, target) in enumerate(self.valid_loader):
+        #   torch.save(data, "re_worked_data/valid_loader/data" + str(ist))
+        #   torch.save(target, "re_worked_data/valid_loader/target" + str(ist))
+
+        # exit()
+        if self.verb: logging.info('valid-data: %d steps, localBS*repStep*repli=%d'%(len(self.valid_loader),self.valid_loader.batch_size))
+
+    if self.verb:
+      logging.info('oank %d of %d, data loader initialized, valPeriod=%s'%(params['world_rank'],params['world_size'],str(self.valPeriod)))
+      logging.info('train-data: %d steps, localBS*replicaStep=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,self.params['global_batch_size']))
+    # must know the number of steps to decided how often to print
+    self.params['log_freq_step']=max(1,len(self.train_loader)//self.params['log_freq_per_epoch'])
+
+
+
 #...!...!..................
   def train_replica(self):
     if self.verb:
@@ -199,7 +268,9 @@ class Trainer():
     warmup_epochs=self.params['train_conf']['warmup_epochs']
     optName, initLR=self.params['train_conf']['optimizer']
 
-    #. . . . . . .  epoch loop start . . . . . . . . 
+    self.memory_footprint('Before the training loop')
+
+    #. . . . . . .  epoch loop start . . . . . . . .
     for epoch in range(self.startEpoch, self.params['max_epochs']):
       self.epoch= epoch
       # decide if validation runs
@@ -208,7 +279,7 @@ class Trainer():
         if self.verb: logging.info('use true val-pass for epoch=%d'%epoch)
         self.doVal=True
         self.params['gc_m2000']['pseudoValidation']=False
-      
+
       # Apply learning rate warmup for some optimizers
       if epoch < warmup_epochs:
           self.optimizer.param_groups[0]['lr'] = initLR*float(epoch+1.)/float(warmup_epochs)
@@ -218,39 +289,44 @@ class Trainer():
       t1 = time.time()
       train_logs = self.train_one_epoch(self.train_loader)
       t2 = time.time()
-      
+
+      if self.epoch == self.params['max_epochs']-1:
+          self.memory_footprint("..first or last epoch, sleep 10 sec..")
+
+      #self.doVal = False
       if self.doVal :
           if self.params['gc_m2000']['pseudoValidation']:
               # use Alex trick: no graph swapping but switch to pseudo-training using optimizer w/ LR=0
               self.model4train.setOptimizer(self.fakeOptimizer) # AdamW w/ LR-0
               t3 = time.time()
-              valid_logs = self.train_one_epoch(self.valid_loader)
+              valid_logs = self.train_one_epoch(self.pseudo_valid_loader)
               t4 = time.time()
               self.model4train.setOptimizer(self.optimizer) # restore training
-              t5 = time.time() 
+              t5 = time.time()
           else:
               #.... do graph swap WORKING - very slow
               self.model4train.detachFromDevice() #GC needs it
               if self.model4infer._executable:  self.model4infer.attachToDevice()
               t3 = time.time()
-              valid_logs = self.validate_one_epoch()  
-              t4 = time.time()    
+              valid_logs = self.validate_one_epoch()
+              t4 = time.time()
               self.model4infer.detachFromDevice() #GC needs it
-              if self.model4train._executable:  self.model4train.attachToDevice()
+              if self.model4train._executable and epoch < self.params['max_epochs']-1:
+                  self.model4train.attachToDevice()
               t5 = time.time()
           loss_val=np.mean(valid_logs['loss'])
-        
-      tend = time.time()        
+
+      tend = time.time()
       loss_train=np.mean(train_logs['loss'])
-      
-                      
+
+
       if epoch >= warmup_epochs and  self.doVal :
-        if self.doRedLRplat:              
+        if self.doRedLRplat:
           self.scheduler.step(loss_val)
         else:
           self.scheduler.step()
         self.model4train.setOptimizer(self.optimizer) #GC:  propagate LR to compiled graph
- 
+
       if self.isRank0:
           totT=tend-t1
           trainT=t2-t1
@@ -268,21 +344,21 @@ class Trainer():
               locTotValSamp=len(self.valid_loader)*self.valid_loader.batch_size
               rec3.update({'val':float(locTotValSamp/valT/kfac)})  # val samp/sec
 
-          lrTit='LR'
+          lrTit='NI/LR'
           if self.params['job_id']!=None: lrTit='LR %s'%self.params['job_id']
-          self.TBSwriter.add_scalars('loss',rec1 , self.epoch)        
+          self.TBSwriter.add_scalars('NI/loss',rec1 , self.epoch)
           self.TBSwriter.add_scalar(lrTit, self.optimizer.param_groups[0]['lr'], self.epoch)
-          
-          self.TBSwriter.add_scalars('epoch time (sec) ',rec2 , self.epoch)
-          self.TBSwriter.add_scalars('glob_speed (k samp:sec) ',rec3 , self.epoch)
+
+          self.TBSwriter.add_scalars('NI/epoch time (sec) ',rec2 , self.epoch)
+          self.TBSwriter.add_scalars('NI/glob_speed (k samp:sec) ',rec3 , self.epoch)
           if epoch>self.startEpoch  and self.params['gc_m2000']['pseudoValidation']: TperEpoch.append(totT)  # use only mid-stream
           tV=np.array(TperEpoch)
           if len(tV)>0:
             tAvr=np.mean(tV); tStd=np.std(tV)/np.sqrt(tV.shape[0])
           else:
             tAvr=tStd=0
-                    
-          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nIPU=%d, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,self.optimizer.param_groups[0]['lr'],loss_train)
+
+          txt='Epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f sec, nIPU=%d, initLR=%.2e, LR=%.2e, Loss: train=%.4f'%(epoch, totT, tAvr,tStd,time.time() -startTrain,self.params['total_replicas'] ,initLR, self.optimizer.param_groups[0]['lr'], loss_train)
           if self.doVal:
             pseu='pseudo-' if self.params['gc_m2000']['pseudoValidation'] else ''
             txt+=', %sval=%.4f'%(pseu,loss_val)
@@ -292,18 +368,18 @@ class Trainer():
 
       if self.isRank0:
         if self.params['save_checkpoint'] and bestLoss> valid_logs['loss']:
-          testMe_90  
+          testMe_90
           #checkpoint at the end of every epoch  if loss improved
           self.save_checkpoint(self.params['checkpoint_path'])
           bestLoss= valid_logs['loss']
           logging.info('save_checkpoint for epoch %d , val-loss=%.3g'%(epoch + 1, bestLoss) )
 
-      
+
     #. . . . . . .  epoch loop end . . . . . . . .
-    
+
     if self.isRank0:  # create checkpoint and summary record
       outF2=os.path.join(self.params['out_path'],self.params['checkpoint_name'])
-      save_checkpoint(outF2,self.model4train,self.optimizer,epoch)
+      #self.save_checkpoint(outF2,self.model4train,self.optimizer,epoch)
       logging.info('E:training saved:%s'%outF2)
 
       # add info to summary
@@ -316,9 +392,29 @@ class Trainer():
          if self.params['log_to_screen'] and self.verb:
            logging.warn('trainig  not executed?')
 
-      
+
+#...!...!..................
+  def memory_footprint(self, caption):
+    if 0:
+      logging.info(caption)
+      n = np.zeros(shape=(64), dtype=np.float32)
+      tensor = torch.Tensor(n)
+      if self.isDist:
+        avg_value = self.hvd.allreduce(tensor, average=True)
+      returned_value = os.system("top ibn1 ; free -g")
+      time.sleep(10)
+      returned_value = os.system("top ibn1 ; free -g")
+      time.sleep(10)
+      logging.info('done with sleep...' + caption)
+
 #...!...!..................
   def train_one_epoch(self,dataLoader):
+    # for ist, (data, target) in enumerate(dataLoader):
+    #     torch.save(data, "re_worked_data/data" + str(ist))
+    #     torch.save(target, "re_worked_data/target" + str(ist))
+
+    # print("Saving done!")
+    # exit(0)
 
     report_time = time.time()
     report_bs = 0
@@ -326,10 +422,30 @@ class Trainer():
     self.model4train.train()
     # Graphcore speciffic
     loss=0
+    # data, target = next(iter(dataLoader))[0], next(iter(dataLoader))[1]
+    # target = next(iter(dataLoader))[1]
+
+    # data_size, target_size = next(iter(dataLoader))[0].shape, next(iter(dataLoader))[1].shape
+    # print(data_size, target_size)
+    # print(hdeueh)
+    # data, target = torch.rand(data_size).contiguous(), torch.rand(target_size).contiguous()
+    # for ist in range(len(dataLoader)):
     for ist, (data, target) in enumerate(dataLoader):
+        data, target = data.squeeze(), target.squeeze()
+
+        # print(jdieji)
+        """
+          torch.Size([3840, 1600, 4])
+          [1,0]<stdout>:torch.Size([3840, 15])
+        """
+        #if not self.compiled:
+        #  self.model4train.compile(data, target)
+        #  self.compiled = True
+        #  self.memory_footprint('after the compilation')
+
         _, loss_op = self.model4train(data, target)
         loss += loss_op.numpy()
-        
+
         report_bs += data.size()[0]
         #print('xx',i,data.size(),report_bs )
         # only reports speed in mid-epoch
@@ -351,6 +467,7 @@ class Trainer():
     self.model4infer.eval()
     loss=0
     for i, (data, target) in enumerate(self.valid_loader):
+        data, target = data.squeeze(), target.squeeze()
         _, loss_op = self.model4infer(data, target)
         loss += loss_op.numpy()
 
