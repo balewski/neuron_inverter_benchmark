@@ -23,7 +23,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2],help="increase output verbosity", default=1, dest='verb')
 
-    parser.add_argument("--numAcc",default=32)
+    parser.add_argument("--numAcc",default=16)
 
     parser.add_argument("-o", "--outPath", default='out/',help="output path for plots and tables")
 
@@ -32,9 +32,10 @@ def get_parser():
 
 
     args = parser.parse_args()
-    args.prjName='eneUse'
-    args.sourcePathPM='/global/homes/b/balewski/prjs/SC2022-neuron-inverter/ref-jobs-for-GC/april_GCpaper'
+    args.prjName='eneComapre'
     args.sourcePathGC='gc-20220727/'
+    args.sourcePathPM='/global/homes/b/balewski/prjs/SC2022-neuron-inverter/ref-jobs-for-GC/april_GCpaper'
+
 
     args.formatVenue='prod'
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
@@ -64,7 +65,7 @@ class Plotter_EnergyComp(Plotter_Backbone):
         nrow,ncol=1,1
         #  grid is (yN,xN) - y=0 is at the top,  so dumm
         figId=self.smart_append(figId)
-        self.plt.figure(figId,facecolor='white', figsize=(5,4))
+        self.plt.figure(figId,facecolor='white', figsize=(5,3.2))
         ax=self.plt.subplot(nrow,ncol,1)
 
         #tit='jobId=%s, node=%s'%(metaD['jobId'],metaD['hostname'])
@@ -75,7 +76,7 @@ class Plotter_EnergyComp(Plotter_Backbone):
         ax.plot(Tpm,Epm,c=col)
         
         i1,i2=find_index_range(Tpm,wallTR['PM'])
-        print(type(Tpm),type(Epm))
+        #print(type(Tpm),type(Epm))
         print(Tpm[i1:i2].shape,Epm.shape)
         ax.fill_between(Tpm[i1:i2],Epm[i1:i2], facecolor="none", hatch="\\\\", edgecolor=col, linewidth=0.0,label='GPU')
         
@@ -86,30 +87,29 @@ class Plotter_EnergyComp(Plotter_Backbone):
             Tgc.append(t/60.)
             Egc.append(ipu[t])
 
-        Tgc=np.array(Tgc)
+        Tgc=np.array(Tgc) 
         Egc=np.array(Egc)/4.
         if self.args.smoothWindow>0: Egc=smoothF(Egc,args.smoothWindow)
 
         col='r'
-        ax.plot(Tgc,Egc,c=col)
         i1,i2=find_index_range(Tgc,wallTR['GC'])
+        Tgc-=wallTR['GC_delT']
+        ax.plot(Tgc,Egc,c=col)
         ax.fill_between(Tgc[i1:i2],Egc[i1:i2], facecolor="none", hatch="//", edgecolor=col, linewidth=0.0,label='IPU')
         
         ax.legend(loc='best', title='train pass')
         ax.set(xlabel='wall time (min)',ylabel='used power (W/accelerator)')#, title=tit)
         #ax.grid(True)
-        ax.set_xlim(0,15)
-        ax.set_ylim(0,)
+        ax.set_xlim(0,26)
+        ax.set_ylim(0,199)
 
         # Setting the number of ticks
         ax.locator_params(axis='both', nbins=4)
-        txt='%d acceletarors'%args.numAcc
-        ax.text(0.04,0.95,txt,color='k',transform=ax.transAxes,fontsize=12)
+        txt='%d acceletarors job'%args.numAcc
+        #ax.text(0.54,0.91,txt,color='k',transform=ax.transAxes,fontsize=12)
         return
         
-         
-                
-         
+                                
 
 #=================================
 #=================================
@@ -119,11 +119,14 @@ class Plotter_EnergyComp(Plotter_Backbone):
 args=get_parser()
 
 if args.numAcc==32:
-    wallTR={'PM':[2.7,11.8], 'GC':[2.7,14]} # train time ranges
+    wallTR={'PM':[2.84,11.7], 'GC':[2.76,13.95]} # train time ranges
+
+if args.numAcc==16:
+    wallTR={'PM':[3.06, 19.25], 'GC':[4.88,22.6], 'GC_delT':1.9} # train time ranges
 
 #..........  GC
 args.dataName='pod%d-energy'%args.numAcc
-inpF_gc=args.sourcePathGC+'%s.log'%args.dataName
+inpF_gc=args.sourcePathGC+'%s.dat'%args.dataName
 table_gc,_=read_one_csv(inpF_gc,delim='|')
 jobD_gc=ana_one_job_gc(table_gc,args)
 
@@ -138,4 +141,4 @@ metaD_pm,bigD_pm=ana_one_job_pm(jobId_pm,table_pm,args)
 plot=Plotter_EnergyComp(args)
 
 plot.one_job(metaD_pm,bigD_pm,jobD_gc,wallTR)
-plot.display_all('aa')
+plot.display_all('G%d'%args.numAcc,png=0)

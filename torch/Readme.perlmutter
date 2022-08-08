@@ -8,8 +8,8 @@ To see TB on laptop use port forwarding:
 NERSC: from your laptop  in a new Xterm
 ssh pm-tb
   module load pytorch
-  cd /pscratch/sd/b/balewski/tmp_digitalMind/neuInv/benchmark/january
-  tensorboard --port 9600 --logdir=2648858/out/tb
+  cd ~/prjs/SC2022-neuron-inverter/ref-jobs-for-GC/april_GCpaper/G1scan/lr.0002
+  tensorboard --port 9600 --logdir=out/tb
 
 Now you can open   http://0.0.0.0:9600/   in your browser on your laptop
 

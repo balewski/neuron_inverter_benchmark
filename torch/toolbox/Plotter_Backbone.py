@@ -53,10 +53,21 @@ class Plotter_Backbone(object):
         self.figL=[]
         self.outPath=args.outPath+'/'
         self.prjName=args.prjName
-        if args.formatVenue=='poster':
-            roys_fontset(plt)
-        
-        
+        try:
+            if args.formatVenue=='poster':
+                roys_fontset(plt)
+        except:
+            a=0
+    #............................
+    def blank_share2D(self,nrow=2,ncol=2, figsize=(6,6),figId=10):
+        figId=self.smart_append(figId)
+        #self.plt.figure(
+        kwargs={'num':figId,'facecolor':'white', 'figsize':figsize}
+        fig, axs = self.plt.subplots(nrow,ncol, sharex='col', sharey='row',
+                                     gridspec_kw={'hspace': 0, 'wspace': 0}, **kwargs)
+        #print('mm',type(axs))
+        return axs
+   
         
     #............................
     def display_all(self, ext='', png=1):
@@ -66,7 +77,6 @@ class Plotter_Backbone(object):
         for fid in self.figL:
             self.plt.figure(fid)
             self.plt.tight_layout()
-            #self.plt.subplots_adjust(bottom=0.06, top=0.97) # for 21-pred
             
             figName=self.outPath+'%s_%s_f%d'%(self.prjName,ext,fid)
             if png: figName+='.png'

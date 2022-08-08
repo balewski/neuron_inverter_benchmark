@@ -11,8 +11,6 @@ import  time,os
 from pprint import pprint
 from toolbox.Plotter_Backbone import Plotter_Backbone
 from toolbox.Util_IOfunc import read_one_csv
-#from toolbox.Util_Misc import  smoothF
-#from toolbox.Util_IOfunc import write_yaml
 import matplotlib.ticker
 import argparse
 
@@ -28,7 +26,7 @@ def get_parser():
 
     args = parser.parse_args()
     args.prjName='trainScale'
-    args.sourcePath='gc-20220727/'
+   
 
     args.formatVenue='prod'
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
@@ -57,11 +55,11 @@ class Plotter_TrainScaling(Plotter_Backbone):
             print(rec)
             nAcc.append(int(rec['num_acc']))
             timeGC.append(float(rec['epoch_sec']))
-            timeGCI.append(float(rec['ideal_sec']))
+            #timeGCI.append(float(rec['ideal_sec']))
 
         col='r'
-        ax.plot(nAcc,timeGC,"^-",c=col,label="IPUs acheived")
-        ax.plot(nAcc,timeGCI,"--",c=col,label="IPUs ideal")
+        ax.plot(nAcc,timeGC,"o",c=col,ms=12, mfc='none',label="IPUs achieved")
+        #ax.plot(nAcc,timeGCI,"--",c=col,label="IPUs ideal")
 
         nAcc=[]; timePM=[]; timePMI=[]
         for rec in table_pm:
@@ -71,8 +69,8 @@ class Plotter_TrainScaling(Plotter_Backbone):
             timePMI.append(float(rec['ideal_sec']))
   
         col='b'
-        ax.plot(nAcc,timePM,"o-",c=col,label="GPUs  acheived")
-        ax.plot(nAcc,timePMI,"--",c=col,label="GPUs ideal")
+        ax.plot(nAcc,timePM,"D-",c=col,ms=7,label="GPUs  achieved")
+        ax.plot(nAcc,timePMI,"--",c='k',label="ideal scaling")
         
         ax.legend(loc='best')
         ax.set(xlabel='num accelerators',ylabel='time per epoch (sec)')
@@ -101,7 +99,7 @@ class Plotter_TrainScaling(Plotter_Backbone):
             lossGC.append(float(rec['val_loss']))
             
         col='r'
-        ax.plot(nAcc,lossGC,"^-",c=col,label="IPUs")
+        ax.plot(nAcc,lossGC,"o-",c=col,ms=10, mfc='none',label="IPUs")
 
         nAcc=[]; lossPM=[]
         for rec in table_pm:
@@ -110,9 +108,9 @@ class Plotter_TrainScaling(Plotter_Backbone):
             lossPM.append(float(rec['val_loss']))
   
         col='b'
-        ax.plot(nAcc,lossPM,"o-",c=col,label="GPUs")
+        ax.plot(nAcc,lossPM,"D-",c=col,ms=7,label="GPUs")
         
-        ax.legend(loc='best')
+        ax.legend(loc='upper left')
         ax.set(xlabel='num accelerators',ylabel='validation loss')
         ax.set_ylim(0,0.05)
         ax.set_xscale('log')
@@ -136,10 +134,10 @@ class Plotter_TrainScaling(Plotter_Backbone):
 if __name__ == '__main__':
 
     args=get_parser()
-    inpF=os.path.join(args.sourcePath,'gc_train.dat')
+    inpF='gc-20220727/gc_train.dat'
     table_gc,label_gc=read_one_csv(inpF,delim='\t')
 
-    inpF=os.path.join(args.sourcePath,'pm_train.dat')
+    inpF='pm-202204/pm_train.dat'
     table_pm,label_pm=read_one_csv(inpF,delim='\t')
 
     # ----  just plotting 
@@ -147,4 +145,4 @@ if __name__ == '__main__':
 
     plot.epoch_time(table_gc,table_pm)
     plot.val_loss(table_gc,table_pm)
-    plot.display_all('aa')
+    plot.display_all('aa',png=0)

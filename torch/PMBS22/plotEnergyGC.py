@@ -75,7 +75,8 @@ def ana_one_job(table,args):
         args.validIpuIDs=['0','4']
 
     if '16' in  args.dataName:
-        args.validIpuIDs=['16','20','24','28']
+        #args.validIpuIDs=['16','20','24','28']
+        args.validIpuIDs=['0','4','8','12']
 
     if '32' in  args.dataName:
         args.validIpuIDs=['32','36','40','44']
@@ -157,7 +158,7 @@ def plot_one_job(plot,ipuD,args):
 if __name__ == '__main__':
     args=get_parser()
 
-    inpF=args.sourcePath+'%s.log'%args.dataName
+    inpF=args.sourcePath+'%s.dat'%args.dataName
     table,_=read_one_csv(inpF,delim='|')
     jobD=ana_one_job(table,args)
 
