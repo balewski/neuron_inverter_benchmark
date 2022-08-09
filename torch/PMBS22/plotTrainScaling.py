@@ -58,7 +58,7 @@ class Plotter_TrainScaling(Plotter_Backbone):
             #timeGCI.append(float(rec['ideal_sec']))
 
         col='r'
-        ax.plot(nAcc,timeGC,"o",c=col,ms=12, mfc='none',label="IPUs achieved")
+        ax.plot(nAcc,timeGC,"o",c=col,ms=12, mfc='none',label="GC200 IPUs")
         #ax.plot(nAcc,timeGCI,"--",c=col,label="IPUs ideal")
 
         nAcc=[]; timePM=[]; timePMI=[]
@@ -69,7 +69,7 @@ class Plotter_TrainScaling(Plotter_Backbone):
             timePMI.append(float(rec['ideal_sec']))
   
         col='b'
-        ax.plot(nAcc,timePM,"D-",c=col,ms=7,label="GPUs  achieved")
+        ax.plot(nAcc,timePM,"D-",c=col,ms=7,label="A100  GPUs")
         ax.plot(nAcc,timePMI,"--",c='k',label="ideal scaling")
         
         ax.legend(loc='best')
@@ -99,7 +99,7 @@ class Plotter_TrainScaling(Plotter_Backbone):
             lossGC.append(float(rec['val_loss']))
             
         col='r'
-        ax.plot(nAcc,lossGC,"o-",c=col,ms=10, mfc='none',label="IPUs")
+        ax.plot(nAcc,lossGC,"o-",c=col,ms=10, mfc='none',label="GC200 IPUs")
 
         nAcc=[]; lossPM=[]
         for rec in table_pm:
@@ -108,7 +108,7 @@ class Plotter_TrainScaling(Plotter_Backbone):
             lossPM.append(float(rec['val_loss']))
   
         col='b'
-        ax.plot(nAcc,lossPM,"D-",c=col,ms=7,label="GPUs")
+        ax.plot(nAcc,lossPM,"D-",c=col,ms=7,label="A100  GPUs")
         
         ax.legend(loc='upper left')
         ax.set(xlabel='num accelerators',ylabel='validation loss')

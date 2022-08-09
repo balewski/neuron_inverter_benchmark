@@ -39,11 +39,11 @@ def plot_ene_scale( gce, pme):
         ax=plt.subplot(nrow,ncol,1)
 
         col='b'
-        ax.plot(pme[:,0], pme[:,1],"D-",c=col,ms=7,label="GPUs")
+        ax.plot(pme[:,0], pme[:,1],"D-",c=col,ms=7,label="A100  GPUs")
 
         col='r'
         print(gce.shape)  # 
-        ax.plot(gce[:,0], gce[:,1],"o-",c=col,ms=10, mfc='none',label="IPUs")
+        ax.plot(gce[:,0], gce[:,1],"o-",c=col,ms=10, mfc='none',label="GC200 IPUs")
 
         ax.set_xscale('log')
         ax.legend(loc='best')
