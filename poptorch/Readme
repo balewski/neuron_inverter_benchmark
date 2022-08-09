@@ -1,0 +1,87 @@
+
+To display TensorBoard on your laptop do
+
+ssh  -i ~/.ssh/azure.pem -A  -Y -L localhost:9998:localhost:9998 balewskij@lr66-poplar3.usclt-pod1.graphcloud.ai
+
+source ~/neuron_inverter_benchmark/poptorc/mySetup.source
+
+cd ~/neuron_inverter_benchmark/poptorch
+
+   tensorboard --logdir=outABC/tb_logs --port 9998
+
+$ pkill -9 tensorboard
+
+Now you can open http://0.0.0.0:9998/ in your browser on your laptop
+
+
+ = = = =
+
+ test job on 4 GPUs, cellName=witness2c,
+m=4
+ poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design gc4  --outPath outY  --cellName witness2c
+
+INFO - Epoch 160 , avr=5.93 +/-0.00 sec/epoc, elaT=991.0 sec, nIPU=4, Loss: train=0.0206, val=0.0219
+
+
+test job on 4IPUs, cellName=bbp153, optimizer: [AdamW, 1e-3]
+
+ poprun --num-instances=$m --num-replicas=$m   ./train_replica.py --design hpar_gc4  --outPath outX
+
+INFO - Epoch 160 took 13.1 sec, avr=3.19 +/-0.00 sec/epoc, elaT=934.0 sec, nIPU=4, LR=1.77e-09, Loss: train=0.0216, val=0.0274
+
+
+ = = = =
+
+To test training on 1 IPU,
+OUTPATH=./out
+DATAPATH=../neuron-data
+export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead":"unlimited"}'
+python ./train_replica.py --design 1_replica --cellName witness2c --outPath $OUTPATH --epochs 5 --data-path $DATAPATH
+
+ = = = =
+
+To test inference on 1 IPU,
+export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead":"unlimited"}'
+python ./train_replica.py --design 1_replica --cellName witness2c --outPath $OUTPATH --data-path $DATAPATH --validation
+
+ = = = =
+
+To test training on 2 IPUs and up,
+
+OUTPATH=./out
+DATAPATH=../neuron-data
+export POPLAR_RUNTIME_OPTIONS='{"streamCallbacks.maxLookahead":"unlimited"}'
+HOSTS=xxx
+REPLICAS=2
+PARTITION=yyy
+VIPU_SERVER_HOST=zzz
+NETMASK=www
+
+poprun -vv --host $HOSTS --mpi-global-args='--tag-output --allow-run-as-root ' --mpi-local-args=' -x OPAL_PREFIX -x LD_LIBRARY_PATH -x PATH -x PYTHONPATH -x IPUOF_VIPU_API_TIMEOUT=600 -x POPLAR_LOG_LEVEL=INFO -x POPLAR_RUNTIME_OPTIONS' --update-partition=yes --reset-partition=no --vipu-server-timeout 300 --ipus-per-replica 1 --numa-aware 1 --sync-type ST_POD_NATIVE_DEFAULT --vipu-server-host $VIPU_SERVER_HOST --vipu-partition=$PARTITION --num-instances $REPLICAS --num-replicas $REPLICAS --executable-cache-path /localdata/$USER/exec_cache python ./train_replica.py --design "$REPLICAS"_replicas --cellName witness2c --outPath OUTPATH --epochs 5 --data-path $DATAPATH
+
+ = = = =
+
+To test inference on 2 IPUs and up,
+poprun -vv --host $HOSTS --mpi-global-args='--tag-output --allow-run-as-root ' --mpi-local-args=' -x OPAL_PREFIX -x LD_LIBRARY_PATH -x PATH -x PYTHONPATH -x IPUOF_VIPU_API_TIMEOUT=600 -x POPLAR_LOG_LEVEL=INFO -x POPLAR_RUNTIME_OPTIONS' --update-partition=yes --reset-partition=no --vipu-server-timeout 300 --ipus-per-replica 1 --numa-aware 1 --sync-type ST_POD_NATIVE_DEFAULT --vipu-server-host $VIPU_SERVER_HOST --vipu-partition=$PARTITION --num-instances $REPLICAS --num-replicas $REPLICAS --executable-cache-path /localdata/$USER/exec_cache python ./train_replica.py --design "$REPLICAS"_replicas --cellName witness2c --outPath $OUTPATH --data-path $DATAPATH --validation
+
+We use 1 host for 2, 4, 8 and 16 IPUs, and 4 hosts for 16 and 32 IPUs.
+Please change to use your own folder of OUTPATH and DATAPATH, and HOSTS,
+REPLICAS, PARTITION, VIPU_SERVER_HOST and NETMASK.
+
+ = = = =
+
+To test POD16, you may specify
+1. number of replicas
+2. learning rate
+3. gradient accumulation count
+
+You may type:
+  bash ./run-pod16.sh 8 0.005 10
+
+Before running run-pod16.sh, you may modify the data path where you store
+the dataset. If you want to test different values for above three variables and
+run multiple times, you may modify test-pod16.sh and type:
+  bash test-pod16.sh 2>&1 | tee r16.log
+
+To check the final TTT and throughput with a particular learning rate(initLR), you may do:
+  grep "Epoch 160" r16.log

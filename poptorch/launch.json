@@ -1,0 +1,109 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "pytest poptorch",
+            "module": "pytest",
+            "args": [
+                // Uncomment to capture stdout/stderr of passed tests
+                // "-rA",
+                "${workspaceFolder:poptorch}/tests/math_ops_test.py::test_unary_ops_bool"
+            ],
+            "envFile": "${workspaceFolder:poptorch}/.env",
+            "env": {
+                // Some commonly used env variables
+                // "POPTORCH_IPU_MODEL": "1",
+                // "POPTORCH_LOG_LEVEL": "DEBUG",
+                // "POPART_LOG_LEVEL": "DEBUG",
+                // "POPLAR_LOG_LEVEL": "DEBUG",
+                // "POPLAR_ENGINE_OPTIONS": "{\"autoReport.all\":\"true\"}",
+            }
+        },
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "pytest popart",
+            "module": "pytest",
+            "args": [
+                // Uncomment to capture stdout/stderr of passed tests
+                // "-rA",
+                "${workspaceFolder:popart}/tests/popart/operators_test/reducemedian_test.py"
+            ],
+            "envFile": "${workspaceFolder:poptorch}/.env",
+            "env": {
+                // Some commonly used env variables
+                // "TEST_TARGET": "IpuModel",
+                // "POPART_LOG_LEVEL": "DEBUG",
+                // "POPLAR_LOG_LEVEL": "DEBUG",
+                // "POPLAR_ENGINE_OPTIONS": "{\"autoReport.all\":\"true\"}",
+            }
+        },
+        {
+            "type": "vgdb",
+            "request": "launch",
+            "name": "cpp poptorch",
+            "program": "${workspaceFolder:poptorch}/../build_popart/buildenv/bin/python",
+            "args": [
+                "-m",
+                "pytest",
+                // Uncomment to capture stdout/stderr of passed tests
+                // "-rA",
+                "${workspaceFolder:poptorch}/tests/math_ops_test.py"
+            ],
+            "startupCmds": [
+                // Some commonly used env variables
+                // "set environment POPTORCH_IPU_MODEL=1",
+                // "set environment POPTORCH_LOG_LEVEL=DEBUG",
+                // "set environment POPART_LOG_LEVEL=DEBUG",
+                // "set environment POPLAR_LOG_LEVEL=DEBUG",
+                // "set environment POPLAR_ENGINE_OPTIONS=\"{\"autoReport.all\":\"true\"}",
+                "source ${workspaceFolder:poptorch}/gdb_load_env.py",
+                "load-env-file ${workspaceFolder:poptorch}/.env",
+                "catch throw",
+            ],
+        },
+        {
+            "type": "vgdb",
+            "request": "launch",
+            "name": "cpp popart",
+            "program": "${workspaceFolder:popart}/../build_popart/buildenv/bin/python",
+            "args": [
+                "-m",
+                "pytest",
+                // Uncomment to capture stdout/stderr of passed tests
+                // "-rA",
+                "${workspaceFolder:popart}/tests/popart/operators_test/reducemedian_test.py::test_reducemedian_training_2"
+            ],
+            "startupCmds": [
+                // Some commonly used env variables
+                // "set environment TEST_TARGET=IpuModel",
+                // "set environment POPART_LOG_LEVEL=DEBUG",
+                // "set environment POPLAR_LOG_LEVEL=DEBUG",
+                // "set environment POPLAR_ENGINE_OPTIONS=\"{\"autoReport.all\":\"true\"}",
+                "source ${workspaceFolder:poptorch}/gdb_load_env.py",
+                "load-env-file ${workspaceFolder:poptorch}/.env",
+                "catch throw",
+            ],
+        },
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "python poptorch",
+            "program": "${workspaceFolder:poptorch}/examples/simple_adder.py",
+            "envFile": "${workspaceFolder:poptorch}/.env",
+            "env": {
+                // Some commonly used env variables
+                // "POPTORCH_IPU_MODEL": "1",
+                // "POPTORCH_LOG_LEVEL": "DEBUG",
+                // "POPART_LOG_LEVEL": "DEBUG",
+                // "POPLAR_LOG_LEVEL": "DEBUG",
+                // "POPLAR_ENGINE_OPTIONS": "{\"autoReport.all\":\"true\"}",
+            }
+        },
+    ]
+}
