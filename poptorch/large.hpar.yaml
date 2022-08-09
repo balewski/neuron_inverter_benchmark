@@ -3,7 +3,7 @@ comment: LR sched and BS optimized for 1 IPU traning
 
 # choose data path depending on facility
 #data_path: /home/balewskij/neuron-data/  # GraphCore, M2000, lr66
-data_path: /localdata/janel/neuron-data/
+data_path: /localdata/datasets/neuron-data/
 
 probe_type: excite2_4prB8kHz  #  BBP2
 
@@ -22,13 +22,16 @@ gc_m2000:
     stagger_delay_sec:  0
     enableSyntheticData: False
     gradientAccumulation: 15
-    num_io_tiles: 104
+    num_io_tiles: 40
     use_all_reduce: False
     prefetch_depth: 1
     rebatch_size: 48
 
+automatic_loss_scaling: True
+loss_scaling: 1
 fp16_inputs: True
-fp16_model: True
+fp16_partials: True
+fp16_weights: True
 
 num_data_workers: 2
 

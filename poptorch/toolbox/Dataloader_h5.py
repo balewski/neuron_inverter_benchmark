@@ -201,23 +201,19 @@ class Dataset_h5_neuronInverter(Dataset):
         self.data_parU = []
 
         # data reading starts ....
-        assert inpFeat<=Xshape[2]
-        for i in range(sampIdxOff, sampIdxOff+locSamp):
-            # print(sampIdxOff, sampIdxOff+locSamp, i)
-            if inpFeat==Xshape[2]:
-                self.data_frames.append(h5f[dom+'_frames'][i])#.astype('float32')
-            else:
-                self.data_frames.append(h5f[dom+'_frames'][i,:,:inpFeat])
-            self.data_parU.append(h5f[dom+'_unitStar_par'][i])#.astype('float32')
+        assert inpFeat==Xshape[2]
+        self.data_frames = h5f[dom+'_frames'][sampIdxOff:sampIdxOff+locSamp]
+        self.data_parU = h5f[dom+'_unitStar_par'][sampIdxOff:sampIdxOff+locSamp]
+
         if cf['doAux']:  #never used
             self.data_parP=h5f[dom+'_phys_par'][sampIdxOff:sampIdxOff+locSamp]
 
         h5f.close()
 
 
-        #if self.conf['fp16_inputs']:
-        #    self.data_frames = self.data_frames.astype('float16')
-        #    self.data_parU = self.data_parU.astype('float16')
+        # if not self.conf['fp16_inputs']:
+        #    self.data_frames = self.data_frames.astype('float32')
+        #    self.data_parU = self.data_parU.astype('float32')
 
         # = = = READING HD5  done
         if self.verb>0 :
