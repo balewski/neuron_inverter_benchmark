@@ -31,6 +31,7 @@ class Trainer():
     popOpts.deviceIterations(params['gc_m2000']['replica_steps_per_iter']) # Device "step"
 
     if for_training:
+      popOpts.Training.setAutomaticLossScaling(params['automatic_loss_scaling']) 
       popOpts.Training.gradientAccumulation(params['gc_m2000']['gradientAccumulation'])
       popOpts.Precision.runningStatisticsAlwaysFloat(True)
 
@@ -50,7 +51,7 @@ class Trainer():
     popOpts._Popart.set("accumulateOuterFragmentSettings.schedule", int(popart.AccumulateOuterFragmentSchedule.OverlapCycleOptimized))
     popOpts._Popart.set("groupHostSync", True)
 
-    if self.params['fp16_model']:
+    if self.params['fp16_partials']:
       popOpts.Precision.setPartialsType(torch.half)
     if params['gc_m2000']['enableSyntheticData']:
       popOpts.enableSyntheticData(True)
@@ -165,7 +166,7 @@ class Trainer():
 
     myModel=NeuInvModel(params, verb=self.verb)
 
-    if self.params['fp16_model']:
+    if self.params['fp16_weights']:
       myModel = myModel.half()
 
     if self.isRank0: # save entirel model before training
@@ -192,8 +193,8 @@ class Trainer():
     if self.verb: logging.info('optimizer:%s'%str(tcf['optimizer']))
     optName, initLR=tcf['optimizer']
     if optName=='AdamW':
-      self.optimizer = poptorch.optim.AdamW(myModel.parameters(), lr=initLR)
-      self.fakeOptimizer = poptorch.optim.AdamW(myModel.parameters(), lr=0., betas=(0.999,0.999), weight_decay=0) # it will not modify weights
+      self.optimizer = poptorch.optim.AdamW(myModel.parameters(), lr=initLR, loss_scaling=params['loss_scaling'])
+      self.fakeOptimizer = poptorch.optim.AdamW(myModel.parameters(), lr=0., betas=(0.999,0.999), weight_decay=0, loss_scaling=params['loss_scaling']) # it will not modify weights
 
     else:
       print('unknown optimizer %s, abort'%optName); exit(99)
@@ -422,6 +423,14 @@ class Trainer():
     # for ist in range(len(dataLoader)):
     for ist, (data, target) in enumerate(dataLoader):
         data, target = data.squeeze(), target.squeeze()
+
+        if self.params['fp16_inputs']:
+            data=data.half()
+            target=target.half()
+        else:
+            data=data.float()
+            target=target.float()
+
 
         # print(data.shape, target.shape)
         # print(jdieji)
