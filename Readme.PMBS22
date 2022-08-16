@@ -1,0 +1,6 @@
+ this code has been used for the PMBS22 paper
+
+Title: Time-series ML-regression on Graphcore IPU-M2000 and Nvidia A100
+
+Abstract
+We compare the ML-training performance of a Graphcore IPU-M2000-based system with Nvidia A100 GPU-based system on the Perlmutter HPC machine at NERSC/LBL. The multivariate regression of time series data from a simulated biological neuron was the scientific benchmark problem. The ML-model consisted of several convolutional, batch normalization, and fully connected layers. The training data were distributed in CPUs memory to eliminate the system dependent IO cost. The data-parallel training runs resulted in the same samples throughput on both GC200 IPUs and A100 GPUs for any choice of the number of accelerators between 1 and 256. The achieved best MSE validation loss on IPUs was only 10% to 20% larger. The aggregated energy use per 1 training epoch was between 2.5 to 3 times smaller for the Graphcore-system in comparison to the Nvidia-system. This paper also discusses aspects of software-hardware co-design to achieve highest efficiency on the IPU using PopTorch
